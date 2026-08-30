@@ -5,7 +5,7 @@ name: 发布页面
 
 on:
   push:
-    branches: [main]
+    branches: [master]
   workflow_dispatch:
 
 permissions:
