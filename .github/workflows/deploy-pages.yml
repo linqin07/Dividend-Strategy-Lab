@@ -1,6 +1,6 @@
 # GitHub Pages 静态部署：web/ 页面 + output/ 结果一起发布
 # 触发：main 分支推送（含上面两个工作流的自动提交）
-# 首次使用：Settings → Pages → Source 选 "Gi  tHub Actions"
+# 首次使用：Settings → Pages → Source 选 "GitHub Actions"
 name: 发布页面
 
 on:
