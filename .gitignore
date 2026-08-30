@@ -17,8 +17,8 @@ freeze_tmp.txt
 .DS_Store
 Thumbs.db
 
-# 回测输出（可再生）
-output/
+# 回测输出（提交到仓库，供 CI/Pages 使用；*.tmp 已被上方规则忽略）
+# output/
 
 # 本地工作区记忆（不提交）
 .workbuddy/
