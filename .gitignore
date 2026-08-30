@@ -2,7 +2,7 @@
 .env
 
 # 行情缓存（可再生）
-data/
+
 
 # Python
 __pycache__/
