@@ -74,6 +74,7 @@ MAIL_TO=receiver@example.com
 |---|---|---|
 | `weekly-signal.yml` | 每周五 17:30（北京时间）/ 手动 | 计算信号 → 发邮件 → 提交 output/ |
 | `backtest.yml` | 手动 | 全量回测 → 提交 output/ |
+| `push-refresh.yml` | push 到 master | 代码提交后自动重算回测+信号 → 提交 output/ |
 | `deploy-pages.yml` | push 到 main | web/ + output/ 发布到 GitHub Pages |
 
 首次使用需在 **Settings → Secrets and variables → Actions** 添加 `SMTP_HOST / SMTP_PORT / SMTP_USER / SMTP_PASS / MAIL_TO`；在 **Settings → Pages** 选择 Source 为 "GitHub Actions"。

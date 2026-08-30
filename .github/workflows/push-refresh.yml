@@ -1,0 +1,42 @@
+# Push 触发：每次提交到 master 后自动重算回测/信号并更新 output/
+# 说明：由 GITHUB_TOKEN 推送的提交不会再次触发工作流，因此不会死循环
+name: Push 自动刷新 output
+
+on:
+  push:
+    branches:
+      - master
+    paths-ignore:
+      - "output/**"   # 仅 output 变化时跳过（防止极端情况下循环触发）
+      - "README.md"
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: 安装依赖
+        run: pip install -r requirements.txt
+
+      - name: 运行回测 + 最新信号（不发邮件）
+        env:
+          PROVIDER_ORDER: "eastmoney,csindex,tencent,akshare"
+        run: |
+          python run.py backtest --all --start "2022-01-01"
+          python run.py signal --all --force
+
+      - name: 提交新 output 并推送
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add output/
+          git diff --cached --quiet || (git commit -m "chore(action): push 后自动更新 output/" && git push)
