@@ -5,6 +5,7 @@ name: 每周信号推送
 on:
   schedule:
     - cron: "26 11 30 8 *"  # 临时测试：UTC 11:26 8月30日（北京时间 19:26），仅触发一次
+   
     # - cron: "30 9 * * 5"   # UTC 09:30 周五（北京时间 17:30）
   workflow_dispatch:
 
