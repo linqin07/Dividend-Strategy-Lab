@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#2f6fed">
+<title>红利策略实验室 · 移动版</title>
+<link rel="stylesheet" href="m.css">
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<script>if (typeof echarts === "undefined") { document.write('<script src="https://unpkg.com/echarts@5.5.0/dist/echarts.min.js"><\/script>'); }</script>
+<script>
+// 前后端分离部署：设置后端 API 地址（同源留空）
+window.API_BASE = "";
+</script>
+</head>
+<body>
+
+<!-- 顶部栏（移动端） -->
+<header class="topbar">
+  <div class="brand">📈 红利策略实验室<span class="mini">移动版</span></div>
+  <div class="acts">
+    <a class="rot-link" href="rotation.html" title="创业板指/中证红利 比值轮动面板">🔄 轮动</a>
+    <span id="modeBadge" class="badge badge-static">静态预览</span>
+    <button id="btnRefresh" class="icon-btn" hidden title="更新行情">⟳</button>
+    <button id="btnFunds" class="icon-btn" hidden title="基金管理">⚙</button>
+    <button id="btnBacktest" class="icon-btn primary" hidden title="立即回测">▶</button>
+  </div>
+</header>
+
+<!-- 标的切换 -->
+<nav id="fundTabs" class="fund-tabs" aria-label="标的切换"></nav>
+
+<!-- 空状态 -->
+<div id="emptyState" class="empty" hidden>
+  <p id="emptyTip">加载中...</p>
+</div>
+
+<main id="mainContent" hidden>
+
+  <!-- 信号卡 -->
+  <section id="signalBanner" class="signal-banner signal-hold" hidden>
+    <div class="sig-main">
+      <span id="sigState" class="sig-state">--</span>
+      <span id="sigAction" class="sig-action">--</span>
+      <span id="sigNote" class="sig-note">加载中...</span>
+    </div>
+    <div class="sig-meta">
+      <span id="sigAmount" class="sig-amount"></span>
+      <span id="sigDiv"></span>
+      <span id="sigRsi"></span>
+      <span id="sigWeek"></span>
+      <span id="sigExec"></span>
+      <span id="sigProvider"></span>
+      <span id="sigTime"></span>
+      <span id="sigStale" class="stale-tag" hidden>缓存(可能过期)</span>
+    </div>
+  </section>
+
+  <!-- 策略表现对比（默认展开） -->
+  <section class="panel" id="panelMetrics" data-collapsible>
+    <div class="panel-head" role="button" tabindex="0" aria-expanded="true">
+      <h2>策略表现对比</h2>
+      <div class="panel-tools">
+        <span id="btYield" class="yield-chip" title="TTM股息率 = 最近12个月每股分红合计 ÷ 最新收盘价"></span>
+        <label>回测区间
+          <input type="date" id="btStart" value="2022-01-01">
+          ~ <input type="date" id="btEnd" value="">
+        </label>
+        <span id="btMeta" class="meta-text"></span>
+      </div>
+      <span class="chevron" aria-hidden="true">▾</span>
+    </div>
+    <div id="metricCards" class="metric-cards"></div>
+  </section>
+
+  <!-- 行情走势与交易点位 -->
+  <section class="panel collapsed" id="panelKline" data-collapsible>
+    <div class="panel-head" role="button" tabindex="0" aria-expanded="false">
+      <h2>行情走势与交易点位</h2>
+      <div class="panel-tools">
+        <div class="seg" id="periodSegKline" title="日K / 周K 切换"></div>
+        <label>标注<select id="strategySelect"></select></label>
+      </div>
+      <span class="chevron" aria-hidden="true">▾</span>
+    </div>
+    <div id="chartKline" class="chart chart-tall"></div>
+  </section>
+
+  <!-- 实时股息率汇总 -->
+  <section class="panel collapsed" id="yieldPanel" data-collapsible data-lazy="yield">
+    <div class="panel-head" role="button" tabindex="0" aria-expanded="false">
+      <h2>实时股息率汇总</h2>
+      <div class="panel-tools">
+        <span id="yieldMeta" class="meta-text"></span>
+        <button id="btnYieldRefresh" class="btn btn-ghost" hidden>刷新</button>
+      </div>
+      <span class="chevron" aria-hidden="true">▾</span>
+    </div>
+    <div id="yieldStats" class="yield-stats"></div>
+    <div class="table-wrap">
+      <table id="yieldTable"><thead>
+        <tr><th>基金</th><th>类型</th><th>跟踪指数</th><th class="num">静态股息率</th><th class="num">滚动TTM</th><th class="num">市盈率</th><th>数据日期</th><th>来源</th></tr>
+      </thead><tbody></tbody></table>
+    </div>
+    <div class="yield-note" id="yieldNote"></div>
+  </section>
+
+  <!-- 周线 RSI -->
+  <section class="panel collapsed" id="panelRsi" data-collapsible data-lazy="rsi">
+    <div class="panel-head" role="button" tabindex="0" aria-expanded="false">
+      <h2>RSI 拆分抹平序列</h2>
+      <div class="panel-tools">
+        <div class="seg" id="periodSegRsi" title="日K / 周K 切换"></div>
+        <span id="rsiSummary" class="meta-text"></span>
+      </div>
+      <span class="chevron" aria-hidden="true">▾</span>
+    </div>
+    <div class="rsi-settings" id="rsiSettings"></div>
+    <div id="chartRsi" class="chart"></div>
+  </section>
+
+  <!-- BOLL 布林带 -->
+  <section class="panel collapsed" id="panelBoll" data-collapsible data-lazy="boll">
+    <div class="panel-head" role="button" tabindex="0" aria-expanded="false">
+      <h2>BOLL 布林带</h2>
+      <div class="panel-tools">
+        <div class="seg" id="periodSegBoll" title="日K / 周K 切换"></div>
+        <span id="bollSummary" class="meta-text"></span>
+      </div>
+      <span class="chevron" aria-hidden="true">▾</span>
+    </div>
+    <div class="boll-settings" id="bollSettings"></div>
+    <div id="chartBoll" class="chart"></div>
+  </section>
+
+  <!-- 策略净值曲线 -->
+  <section class="panel collapsed" id="panelEquity" data-collapsible data-lazy="equity">
+    <div class="panel-head" role="button" tabindex="0" aria-expanded="false">
+      <h2>策略净值曲线</h2>
+      <span class="chevron" aria-hidden="true">▾</span>
+    </div>
+    <div id="chartEquity" class="chart"></div>
+  </section>
+
+  <!-- 交易明细 -->
+  <section class="panel collapsed" id="panelTrades" data-collapsible data-lazy="trades">
+    <div class="panel-head" role="button" tabindex="0" aria-expanded="false">
+      <h2 id="tradesTitle">交易明细</h2>
+      <span id="tradesCount" class="meta-text"></span>
+      <span class="chevron" aria-hidden="true">▾</span>
+    </div>
+    <div class="table-wrap">
+      <table id="tradesTable">
+        <thead><tr><th>日期</th><th>方向</th><th class="num">成交价</th><th class="num">份额</th><th class="num">金额(¥)</th><th class="num">费用</th><th>原因</th><th class="num">权益(¥)</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 指标解读（精简） -->
+  <section class="panel collapsed" id="panelIndicators" data-collapsible>
+    <div class="panel-head" role="button" tabindex="0" aria-expanded="false">
+      <h2>指标解读</h2>
+      <span class="chevron" aria-hidden="true">▾</span>
+    </div>
+    <div class="indicator-groups">
+      <div class="ind-grid">
+        <div class="ind-card"><div class="ind-head"><span class="ind-name">累计收益</span></div><p class="ind-desc">（期末权益−期初本金）÷期初本金，含分红复投，策略对比第一指标。</p></div>
+        <div class="ind-card"><div class="ind-head"><span class="ind-name">年化收益</span></div><p class="ind-desc">累计收益折算为年度复合增长率，便于跨区间比较。</p></div>
+        <div class="ind-card"><div class="ind-head"><span class="ind-name">股息率(TTM)</span></div><p class="ind-desc">最近12个月每股分红合计÷最新收盘价，红利核心指标。</p></div>
+        <div class="ind-card"><div class="ind-head"><span class="ind-name">最大回撤</span></div><p class="ind-desc">权益净值峰至谷最大跌幅，衡量持有体验与抗风险能力。</p></div>
+        <div class="ind-card"><div class="ind-head"><span class="ind-name">平均仓位</span></div><p class="ind-desc">持仓市值÷总权益日均值，反映市场暴露程度。</p></div>
+        <div class="ind-card"><div class="ind-head"><span class="ind-name">夏普比率</span></div><p class="ind-desc">（年化收益−2%）÷年化波动，每单位风险的超额回报。</p></div>
+        <div class="ind-card"><div class="ind-head"><span class="ind-name">卡玛比率</span></div><p class="ind-desc">年化收益÷最大回撤，回撤敏感策略的稳健性指标。</p></div>
+      </div>
+    </div>
+  </section>
+
+
+</main>
+
+<!-- 回测进度 -->
+<div id="jobBar" class="job-bar" hidden>
+  <div class="job-bar-inner">
+    <span class="spinner"></span>
+    <span id="jobText">执行中...</span>
+  </div>
+</div>
+
+<!-- 基金管理弹窗 -->
+<div id="fundModal" class="modal-mask" hidden>
+  <div class="modal">
+    <div class="modal-head">
+      <h2 id="fundFormTitle">新增基金</h2>
+      <button id="fundModalClose" class="btn-close">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="table-wrap"><table id="fundTable">
+        <thead><tr><th>编码</th><th>名称</th><th>类型</th><th class="num">RSI买</th><th class="num">RSI卖</th><th>跟踪指数</th><th>仓位设置</th><th>操作</th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+      <form id="fundForm" class="fund-form">
+        <div class="form-row">
+          <label>编码<input name="code" required pattern="\d{6}" placeholder="932305"></label>
+          <label>名称<input name="name" placeholder="智选高股息"></label>
+        </div>
+        <div class="form-row">
+          <label>类型<select name="kind"><option value="index">指数</option><option value="etf">ETF</option><option value="fund">场外基金</option></select></label>
+          <label>跟踪指数<input name="index_code" placeholder="000922（选填）"></label>
+        </div>
+        <div class="form-row">
+          <label>RSI买<input name="rsi_buy" type="number" value="45"></label>
+          <label>RSI卖<input name="rsi_sell" type="number" value="65"></label>
+        </div>
+        <div class="form-row">
+          <label>仓位金额<input name="position_amount" type="number" value="10000"></label>
+          <label>仓位比例%<input name="position_ratio" type="number" value="100"></label>
+        </div>
+        <div class="form-row">
+          <label>倍率模式<select name="mult_mode"><option value="none">无</option><option value="double">倍率</option></select></label>
+          <label>倍率系数<input name="mult_factor" type="number" value="1" step="0.1"></label>
+        </div>
+        <div class="form-acts">
+          <button type="button" id="fundCancelBtn" class="btn" hidden>取消</button>
+          <button type="submit" id="fundSubmitBtn" class="btn btn-primary">添加</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast" hidden></div>
+
+<script src="app.js"></script>
+</body>
+</html>

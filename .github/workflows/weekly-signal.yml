@@ -1,0 +1,44 @@
+# 每周信号推送：周五收盘后计算全部标的信号并发送邮件
+# 北京时间周五 17:30 = UTC 周五 09:30
+name: 每周信号推送
+
+on:
+  schedule:
+    - cron: "30 9 * * 5"   # UTC 09:30 周五（北京时间 17:30）
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  signal:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: 安装依赖
+        run: pip install -r requirements.txt
+
+      - name: 计算信号并发送邮件
+        env:
+          # 数据源链（CI 中去掉 tdx，避免额外依赖）
+          PROVIDER_ORDER: "eastmoney,csindex,tencent,akshare"
+          # SMTP 配置来自仓库 Secrets（Settings → Secrets and variables → Actions）
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          MAIL_TO: ${{ secrets.MAIL_TO }}
+        run: python run.py signal --all --notify --force
+
+      - name: 提交信号结果（供页面/邮件存档）
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add output/
+          git diff --cached --quiet || (git commit -m "chore(action): 更新每周信号 output/" && git push)

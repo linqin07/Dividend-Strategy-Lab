@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>红利策略实验室 · 基金测算系统</title>
+<link rel="stylesheet" href="style.css">
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<script>
+// CDN 失败时回退备用源
+if (typeof echarts === "undefined") {
+  document.write('<script src="https://unpkg.com/echarts@5.5.0/dist/echarts.min.js"><\/script>');
+}
+</script>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-icon">📈</span>
+    <div>
+      <h1>红利策略实验室</h1>
+      <p class="brand-sub">周线 RSI(14) Wilder 择时 · 基于中证红利/高股息策略回测</p>
+    </div>
+  </div>
+  <div class="topbar-actions">
+    <a class="btn" href="rotation.html" title="创业板指 / 中证红利 比值轮动策略决策面板">比值轮动面板</a>
+    <span id="modeBadge" class="badge badge-static" title="静态模式：仅浏览已生成的回测结果">静态预览</span>
+    <button id="btnRefresh" class="btn btn-ghost" hidden>更新行情</button>
+    <button id="btnBacktest" class="btn btn-primary" hidden>立即回测</button>
+    <button id="btnFunds" class="btn btn-ghost" hidden>基金管理</button>
+  </div>
+</header>
+
+<nav id="fundTabs" class="fund-tabs" aria-label="标的切换"></nav>
+
+<section id="signalBanner" class="signal-banner signal-hold" hidden>
+  <div class="sig-main">
+    <span id="sigState" class="sig-state">--</span>
+    <span id="sigAction" class="sig-action">--</span>
+    <span id="sigNote" class="sig-note">加载中...</span>
+  </div>
+  <div class="sig-meta">
+    <span id="sigAmount" class="sig-amount"></span>
+    <span id="sigDiv" title="TTM股息率 = 最近12个月每股分红合计 ÷ 最新收盘价"></span>
+    <span id="sigRsi"></span>
+    <span id="sigWeek"></span>
+    <span id="sigExec"></span>
+    <span id="sigProvider"></span>
+    <span id="sigTime"></span>
+    <span id="sigStale" class="stale-tag" hidden>缓存(可能过期)</span>
+  </div>
+</section>
+
+<section class="empty-state" id="emptyState" hidden>
+  <div class="empty-card">
+    <h2>暂无回测结果</h2>
+    <p id="emptyTip">请先运行 <code>python run.py backtest --all</code> 生成结果，或运行 <code>python run.py serve</code> 后点击「立即回测」。</p>
+  </div>
+</section>
+
+<main id="mainContent" hidden>
+
+  <section class="panel" id="panelMetrics" data-collapsible>
+    <div class="panel-head" role="button" tabindex="0" aria-expanded="true">
+      <h2>策略表现对比</h2>
+      <div class="panel-tools">
+        <span id="btYield" class="yield-chip" title="TTM股息率 = 最近12个月每股分红合计 ÷ 最新收盘价"></span>
+        <label>回测区间
+          <input type="date" id="btStart" value="2022-01-01">
+          ~
+          <input type="date" id="btEnd" value="">
+        </label>
+        <span id="btMeta" class="meta-text"></span>
+      </div>
+      <span class="chevron" aria-hidden="true">▾</span>
+    </div>
+    <div id="metricCards" class="metric-cards"></div>
+  </section>
+
+  <section class="panel collapsed" id="yieldPanel" data-collapsible data-lazy="yield">
+    <div class="panel-head" role="button" tabindex="0" aria-expanded="false">
+      <h2>实时股息率汇总</h2>
+      <div class="panel-tools">
+        <span id="yieldMeta" class="meta-text"></span>
+        <button id="btnYieldRefresh" class="btn btn-ghost" hidden>刷新</button>
+      </div>
+      <span class="chevron" aria-hidden="true">▾</span>
+    </div>
+    <div id="yieldStats" class="yield-stats"></div>
+    <div class="table-wrap">
+      <table id="yieldTable">
+        <thead>
+          <tr>
+            <th>基金</th><th>类型</th><th>跟踪指数</th>
+            <th class="num">静态股息率</th><th class="num">滚动股息率(TTM)</th>
+            <th class="num">市盈率(TTM)</th><th>数据日期</th><th>来源</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="yield-note" id="yieldNote"></div>
+  </section>
+
+  <section class="panel collapsed" id="panelIndicators" data-collapsible>
+    <div class="panel-head" role="button" tabindex="0" aria-expanded="false">
+      <h2>指标解读 · 红利策略知识库</h2>
+      <div class="panel-tools">
+        <span class="meta-text">口径参照《红利ETF低波择时策略的回测比较与操作规则研究》</span>
+      </div>
+      <span class="chevron" aria-hidden="true">▾</span>
+    </div>
+    <div class="indicator-groups">
+
+      <div class="ind-group">
+        <h3 class="ind-group-title">📊 收益评估</h3>
+        <div class="ind-grid">
+          <div class="ind-card">
+            <div class="ind-head"><span class="ind-name">累计收益</span><span class="ind-tag tag-core">核心</span></div>
+            <p class="ind-formula">（期末权益 − 期初投入本金）÷ 期初投入本金</p>
+            <p class="ind-desc">从期初投入现金起算、而非首日收盘价起算；持仓期分红计入现金，下一次买入时复投。用于衡量整个回测区间的总回报，是策略对比的第一指标。</p>
+          </div>
+          <div class="ind-card">
+            <div class="ind-head"><span class="ind-name">年化收益</span><span class="ind-tag tag-core">核心</span></div>
+            <p class="ind-formula">（1 + 累计收益）^(1/持有年数) − 1</p>
+            <p class="ind-desc">将累计收益折算为年度复合增长率，消除持有期长短的影响，便于跨区间、跨标的横向比较。</p>
+          </div>
+          <div class="ind-card">
+            <div class="ind-head"><span class="ind-name">股息率</span><span class="ind-tag tag-new">新增</span></div>
+            <p class="ind-formula">TTM：最近12个月每股分红合计 ÷ 最新收盘价</p>
+            <p class="ind-desc">衡量持有期内分红现金回报水平的红利核心指标。股息率越高，价格下跌时的分红保护越强，也反映当前估值的性价比；红利ETF的长期回报由「股息 + 价差」两部分构成。</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="ind-group">
+        <h3 class="ind-group-title">🛡️ 风险与仓位</h3>
+        <div class="ind-grid">
+          <div class="ind-card">
+            <div class="ind-head"><span class="ind-name">最大回撤</span><span class="ind-tag tag-risk">风险</span></div>
+            <p class="ind-formula">权益净值自峰至谷的最大跌幅</p>
+            <p class="ind-desc">衡量策略在最坏行情下权益从高点回落的幅度，是回撤敏感型资金（如红利低波定位）最关注的指标；回撤越小，持有体验与抗风险能力越强。</p>
+          </div>
+          <div class="ind-card">
+            <div class="ind-head"><span class="ind-name">平均仓位</span><span class="ind-tag tag-risk">风险</span></div>
+            <p class="ind-formula">持仓市值 ÷ 总权益的日均值</p>
+            <p class="ind-desc">反映资金平均暴露在市场的比例：仓位越高越贴近满仓持有，收益弹性大但回撤也大；仓位低说明空仓等待时间长、以错过部分收益换取更低风险。</p>
+          </div>
+          <div class="ind-card">
+            <div class="ind-head"><span class="ind-name">分红复投口径</span><span class="ind-tag tag-note">口径</span></div>
+            <p class="ind-formula">持仓期分红入现金 → 空仓期无分红 → 下次买入时一并投入</p>
+            <p class="ind-desc">本系统采用的显式分红口径，接近实盘：分红不按复权价折算进价格，而是留在现金中于买入时复投，避免后复权换算误差。</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="ind-group">
+        <h3 class="ind-group-title">⚖️ 风险调整收益</h3>
+        <div class="ind-grid">
+          <div class="ind-card">
+            <div class="ind-head"><span class="ind-name">夏普比率</span><span class="ind-tag tag-core">核心</span></div>
+            <p class="ind-formula">（年化收益 − 2%无风险利率）÷ 年化波动率</p>
+            <p class="ind-desc">按月度收益年化后扣除2%无风险利率，再除以年化波动率；衡量每承担一单位波动所获得的超额回报，通常大于1表示性价比良好。</p>
+          </div>
+          <div class="ind-card">
+            <div class="ind-head"><span class="ind-name">卡玛比率</span><span class="ind-tag tag-core">核心</span></div>
+            <p class="ind-formula">年化收益 ÷ |最大回撤|</p>
+            <p class="ind-desc">衡量每承受一单位最大回撤所换取的年化收益，是回撤敏感型策略的稳健性指标；卡玛越高，说明收益是「稳扎稳打」而非「大起大落」换来的。</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="ind-group">
+        <h3 class="ind-group-title">📡 择时信号指标</h3>
+        <div class="ind-grid">
+          <div class="ind-card">
+            <div class="ind-head"><span class="ind-name">周线RSI(14)</span><span class="ind-tag tag-sig">信号</span></div>
+            <p class="ind-formula">Wilder平滑 · 按周收盘计算 · 范围0~100</p>
+            <p class="ind-desc">衡量近期涨跌力度：RSI低于买入线（本系统45）视为超卖、空仓时买入；高于卖出线（60/65）视为超买、持仓时卖出；中间区间不动。只有状态切换才成交，重复信号忽略。</p>
+          </div>
+          <div class="ind-card">
+            <div class="ind-head"><span class="ind-name">布林带 BOLL(20,2)</span><span class="ind-tag tag-sig">信号</span></div>
+            <p class="ind-formula">中轨=20周均线 · 上下轨=±2倍标准差</p>
+            <p class="ind-desc">以波动通道刻画价格位置：接近上轨易超买、接近下轨易超卖。回测显示布林带容易「卖早」，吃到趋势较少，作为滚动信号整体弱于RSI。</p>
+          </div>
+          <div class="ind-card">
+            <div class="ind-head"><span class="ind-name">年线 MA250</span><span class="ind-tag tag-sig">信号</span></div>
+            <p class="ind-formula">250日均线（长期牛熊分界）</p>
+            <p class="ind-desc">价格在年线上方为多头格局、下方为空头格局，用于「年线下方5批价格阶梯建仓」的底仓布局基准，降低一次性满仓的择时风险。</p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <section class="panel" id="panelKline" data-collapsible>
+    <div class="panel-head" role="button" tabindex="0" aria-expanded="true">
+      <h2>行情走势与交易点位</h2>
+      <div class="panel-tools">
+        <div class="seg" id="periodSegKline" title="切换主图与 RSI 副图的计算周期（日K/周K 参数各自独立保存）"></div>
+        <label>标注策略
+          <select id="strategySelect"></select>
+        </label>
+      </div>
+      <span class="chevron" aria-hidden="true">▾</span>
+    </div>
+    <div id="chartKline" class="chart chart-tall"></div>
+  </section>
+
+  <section class="panel collapsed" id="panelRsi" data-collapsible data-lazy="rsi">
+    <div class="panel-head" role="button" tabindex="0" aria-expanded="false">
+      <h2>RSI 拆分抹平序列</h2>
+      <div class="panel-tools">
+        <div class="seg" id="periodSegRsi" title="日K / 周K 切换（主图同步重算）"></div>
+        <span id="rsiSummary" class="meta-text"></span>
+      </div>
+      <span class="chevron" aria-hidden="true">▾</span>
+    </div>
+    <div class="rsi-settings" id="rsiSettings"></div>
+    <div id="chartRsi" class="chart"></div>
+  </section>
+
+  <section class="panel collapsed" id="panelBoll" data-collapsible data-lazy="boll">
+    <div class="panel-head" role="button" tabindex="0" aria-expanded="false">
+      <h2>BOLL 布林带（价格通道）</h2>
+      <div class="panel-tools">
+        <div class="seg" id="periodSegBoll" title="日K / 周K 切换（与主图、RSI 同步）"></div>
+        <span id="bollSummary" class="meta-text"></span>
+      </div>
+      <span class="chevron" aria-hidden="true">▾</span>
+    </div>
+    <div class="boll-settings" id="bollSettings"></div>
+    <div id="chartBoll" class="chart"></div>
+  </section>
+
+  <section class="panel collapsed" id="panelEquity" data-collapsible data-lazy="equity">
+    <div class="panel-head" role="button" tabindex="0" aria-expanded="false">
+      <h2>策略净值曲线（初始资金按各基金仓位金额归一化）</h2>
+      <span class="chevron" aria-hidden="true">▾</span>
+    </div>
+    <div id="chartEquity" class="chart"></div>
+  </section>
+
+  <section class="panel collapsed" id="panelTrades" data-collapsible data-lazy="trades">
+    <div class="panel-head" role="button" tabindex="0" aria-expanded="false">
+      <h2 id="tradesTitle">交易明细</h2>
+      <span id="tradesCount" class="meta-text"></span>
+      <span class="chevron" aria-hidden="true">▾</span>
+    </div>
+    <div class="table-wrap">
+      <table id="tradesTable">
+        <thead>
+          <tr>
+            <th>日期</th><th>方向</th><th class="num">成交价</th><th class="num">份额</th>
+            <th class="num">金额(¥)</th><th class="num">费用(¥)</th><th>原因</th><th class="num">成交后权益(¥)</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+</main>
+
+<!-- 基金管理弹窗 -->
+<div id="fundModal" class="modal-mask" hidden>
+  <div class="modal">
+    <div class="modal-head">
+      <h2>基金管理</h2>
+      <button id="fundModalClose" class="btn-close">×</button>
+    </div>
+    <div class="modal-body">
+      <table id="fundTable">
+        <thead>
+          <tr><th>编码</th><th>名称</th><th>类型</th><th class="num">RSI买</th><th class="num">RSI卖</th><th>跟踪指数</th><th>仓位设置</th><th>操作</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <h3 id="fundFormTitle">新增基金</h3>
+      <form id="fundForm" class="fund-form">
+        <div class="form-row">
+          <label>编码(6位) <input name="code" required pattern="\d{6}" placeholder="如 932305"></label>
+          <label>名称 <input name="name" placeholder="如 智选高股息"></label>
+          <label>类型
+            <select name="kind">
+              <option value="index">指数</option>
+              <option value="etf">ETF</option>
+              <option value="fund">场外基金</option>
+            </select>
+          </label>
+          <label title="跟踪的中证指数代码，用于实时股息率（如 000922 / H30269 / 932305）">跟踪指数 <input name="index_code" placeholder="如 000922（选填）"></label>
+        </div>
+        <div class="form-row">
+          <label>RSI 买入阈值 <input name="rsi_buy" type="number" step="1" min="10" max="50" value="45"></label>
+          <label>RSI 卖出阈值 <input name="rsi_sell" type="number" step="1" min="50" max="90" value="65"></label>
+        </div>
+        <div class="form-row">
+          <label>仓位金额(元) <input name="position_amount" type="number" step="100" min="100" value="10000"></label>
+          <label>浮动仓位比例(%) <input name="position_ratio" type="number" step="1" min="1" max="100" value="100"></label>
+        </div>
+        <div class="form-row">
+          <label>倍率模式
+            <select name="mult_mode">
+              <option value="none">无</option>
+              <option value="buy">越买越多</option>
+              <option value="sell">越卖越多</option>
+              <option value="both">双向</option>
+            </select>
+          </label>
+          <label>倍率系数 <input name="mult_factor" type="number" step="0.1" min="1" value="1"></label>
+          <button type="submit" class="btn btn-primary" id="fundSubmitBtn">添加</button>
+          <button type="button" class="btn btn-ghost" id="fundCancelBtn" hidden>取消编辑</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- 任务进度条 -->
+<div id="jobBar" class="job-bar" hidden>
+  <div class="job-bar-inner">
+    <span class="spinner"></span>
+    <span id="jobText">执行中...</span>
+  </div>
+</div>
+
+<div id="toast" class="toast" hidden></div>
+
+<footer class="footer">
+  信号口径：周五收盘确认 · 下一交易日开盘执行 · 买卖各 0.1% 成本 · 持仓期分红计入现金 · 初始资金=各基金仓位金额（可在「基金管理」中设置）
+</footer>
+
+<script>
+// 前后端分离部署：设置为后端 API 地址（如 "http://127.0.0.1:8000"）；
+// 同源部署（FastAPI 同时托管页面与接口）留空即可。
+window.API_BASE = "";
+</script>
+<script src="app.js"></script>
+</body>
+</html>

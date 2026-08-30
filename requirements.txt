@@ -1,0 +1,10 @@
+pandas>=2.0
+numpy>=1.26
+requests>=2.31
+akshare>=1.14
+tdx-mcp>=0.1
+
+# 服务（前后端分离）：FastAPI 提供 /api/*，web/ 为前端页面
+fastapi>=0.110
+uvicorn>=0.27
+pydantic>=2.0

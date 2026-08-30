@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>创业板指 / 中证红利 比值轮动策略 · 量化决策面板</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<script>if (typeof echarts === "undefined") { document.write('<script src="https://unpkg.com/echarts@5.5.0/dist/echarts.min.js"><\/script>'); }</script>
+<style>
+  :root {
+    --bg: #f5f7fa; --panel: #ffffff; --panel2: #f7f9fc; --border: #e3e8ef;
+    --txt: #1f2733; --txt2: #5c6b7f; --txt3: #93a1b3;
+    --red: #d93838; --green: #0c9668; --yellow: #c27803; --blue: #2f6fed;
+    --shadow: 0 1px 3px rgba(16, 33, 62, .08), 0 4px 14px rgba(16, 33, 62, .05);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  [hidden] { display: none !important; }
+  body {
+    background: var(--bg); color: var(--txt);
+    font-family: "PingFang SC", "Microsoft YaHei", "Segoe UI", system-ui, sans-serif;
+    padding: 0 0 40px; line-height: 1.6;
+  }
+  .wrap { max-width: 1240px; margin: 0 auto; padding: 0 16px; }
+
+  /* 顶栏（与红利策略实验室一致） */
+  .topbar {
+    display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;
+    padding: 14px 28px; background: var(--panel); border-bottom: 1px solid var(--border);
+    margin-bottom: 18px; position: sticky; top: 0; z-index: 20;
+  }
+  .brand { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .brand-icon { font-size: 28px; }
+  .brand h1 { font-size: 20px; letter-spacing: .5px; margin: 0; }
+  .brand .sub { color: var(--txt2); font-size: 12.5px; margin-top: 2px; }
+  .back-link {
+    color: var(--blue); font-size: 13px; text-decoration: none; white-space: nowrap;
+    border: 1px solid var(--border); border-radius: 8px; padding: 6px 12px; background: var(--panel);
+  }
+  .back-link:hover { border-color: #c6d2e2; background: #f7f9fc; }
+  .badge-src {
+    font-size: 12px; padding: 5px 12px; border-radius: 999px;
+    border: 1px solid var(--border); color: var(--txt2); background: #f0f3f8;
+  }
+  .badge-src.live { color: var(--green); border-color: #bde5d3; background: #eafaf2; }
+
+  /* 卡片通用 */
+  .card {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+    padding: 16px 18px; margin-bottom: 16px; box-shadow: var(--shadow);
+  }
+  .card-title { font-size: 14px; font-weight: 600; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+  .card-title .bar { width: 3px; height: 14px; border-radius: 2px; background: var(--blue); }
+
+  /* 配置区 */
+  .cfg-row { display: flex; flex-wrap: wrap; gap: 18px; align-items: flex-end; }
+  .cfg-item { display: flex; flex-direction: column; gap: 4px; }
+  .cfg-item label { font-size: 12px; color: var(--txt2); }
+  .cfg-item input {
+    width: 110px; padding: 7px 10px; font-size: 14px; font-family: Consolas, monospace;
+    background: #fff; color: var(--txt); border: 1px solid var(--border); border-radius: 8px;
+  }
+  .cfg-item input:focus { outline: none; border-color: var(--blue); }
+  .btn {
+    padding: 8px 22px; font-size: 14px; font-weight: 600; border-radius: 8px; cursor: pointer;
+    background: var(--blue); color: #fff; border: none; transition: filter .15s;
+  }
+  .btn:hover { filter: brightness(1.1); }
+  .cfg-note { width: 100%; font-size: 12px; color: var(--txt3); }
+
+  /* 规则卡 */
+  .rules { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .rule {
+    border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px;
+    background: var(--panel2); position: relative; overflow: hidden;
+  }
+  .rule::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; }
+  .rule.attack::before { background: var(--red); }
+  .rule.defend::before { background: var(--green); }
+  .rule.hold::before { background: var(--yellow); }
+  .rule h3 { font-size: 14px; margin-bottom: 6px; }
+  .rule.attack h3 { color: var(--red); }
+  .rule.defend h3 { color: var(--green); }
+  .rule.hold h3 { color: var(--yellow); }
+  .rule p { font-size: 12.5px; color: var(--txt2); }
+  .rule .cond {
+    font-family: Consolas, monospace; font-size: 13px; color: var(--txt);
+    background: #fff; border: 1px solid var(--border); border-radius: 6px;
+    padding: 4px 8px; margin: 6px 0; display: inline-block;
+  }
+  .basis { margin-top: 12px; font-size: 12px; color: var(--txt3); border-top: 1px dashed var(--border); padding-top: 10px; }
+
+  /* 仪表盘 */
+  .dash { display: grid; grid-template-columns: 340px 1fr; gap: 16px; }
+  .gauge { display: flex; flex-direction: column; }
+  .ratio-big { font-size: 52px; font-weight: 800; font-family: Consolas, monospace; line-height: 1.1; color: var(--txt); }
+  .state-line { display: flex; align-items: center; gap: 10px; margin: 12px 0 8px; flex-wrap: wrap; }
+  .dot { width: 14px; height: 14px; border-radius: 50%; box-shadow: 0 0 12px currentColor; }
+  .dot.growth { background: var(--red); color: var(--red); }
+  .dot.hold { background: var(--yellow); color: var(--yellow); }
+  .dot.defend { background: var(--green); color: var(--green); }
+  .state-txt { font-size: 18px; font-weight: 700; }
+  .state-txt.growth { color: var(--red); } .state-txt.hold { color: var(--yellow); } .state-txt.defend { color: var(--green); }
+  .meta { font-size: 12.5px; color: var(--txt2); margin-top: 6px; }
+  .meta b { color: var(--txt); font-family: Consolas, monospace; }
+  .bar-track {
+    margin-top: 14px; height: 10px; border-radius: 6px;
+    background: linear-gradient(90deg, rgba(217,56,56,.20), rgba(194,120,3,.20), rgba(12,150,104,.20));
+    border: 1px solid var(--border); position: relative;
+  }
+  .bar-fill { position: absolute; top: -3px; bottom: -3px; width: 8px; border-radius: 3px; background: var(--txt); transform: translateX(-50%); transition: left .3s; }
+  .bar-tags { display: flex; justify-content: space-between; font-size: 11px; color: var(--txt3); margin-top: 4px; font-family: Consolas, monospace; }
+
+  /* 指标卡 */
+  .metrics { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; }
+  .m-card { background: var(--panel2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }
+  .m-card .k { font-size: 12px; color: var(--txt2); }
+  .m-card .v { font-size: 20px; font-weight: 700; font-family: Consolas, monospace; margin-top: 4px; }
+  .m-card .s { font-size: 11px; color: var(--txt3); margin-top: 2px; }
+  .v.up { color: var(--red); } .v.down { color: var(--green); } .v.plain { color: var(--txt); }
+
+  /* 图表 */
+  .chart { width: 100%; height: 340px; }
+  .chart.tall { height: 380px; }
+
+  /* 明细表 */
+  .tbl-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  th, td { padding: 8px 12px; text-align: right; white-space: nowrap; }
+  th { color: var(--txt2); font-weight: 600; border-bottom: 1px solid var(--border); }
+  td { border-bottom: 1px solid #eef2f7; color: var(--txt); font-family: Consolas, monospace; }
+  tr:hover td { background: #f2f5f9; }
+  th:first-child, td:first-child { text-align: left; }
+  .tag { padding: 2px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+  .tag.growth { background: rgba(217,56,56,.12); color: var(--red); }
+  .tag.defend { background: rgba(12,150,104,.12); color: var(--green); }
+
+  @media (max-width: 900px) {
+    .dash { grid-template-columns: 1fr; }
+    .metrics { grid-template-columns: repeat(3, 1fr); }
+    .rules { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 520px) {
+    .metrics { grid-template-columns: repeat(2, 1fr); }
+    .brand h1 { font-size: 17px; }
+    .ratio-big { font-size: 40px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+    <header class="topbar">
+    <div class="brand">
+      <a class="back-link" href="index.html">← 返回红利策略实验室</a>
+      <div>
+        <h1>创业板指 / 中证红利 <span style="color:var(--blue)">比值轮动策略</span></h1>
+        <div class="sub">相对估值比 = 创业板指 ÷ 中证红利（同一份日频数据实时计算，全部指标动态生成）</div>
+      </div>
+    </div>
+    <span class="badge-src" id="srcBadge">数据源：内置模拟序列（近五年）</span>
+  </header>
+
+  <!-- 一、配置区 -->
+  <div class="card">
+    <div class="card-title"><span class="bar"></span>策略参数配置（修改后点击「重新计算」，无需改代码）</div>
+    <div class="cfg-row">
+      <div class="cfg-item"><label>下阈值（≤ 触发进攻·买创业板）</label><input type="number" id="cfgLo" value="0.3" step="0.05" min="0.1"></div>
+      <div class="cfg-item"><label>上阈值（≥ 触发防守·买红利）</label><input type="number" id="cfgHi" value="0.7" step="0.05" min="0.1"></div>
+      <div class="cfg-item"><label>调仓成本（%，双向各计）</label><input type="number" id="cfgCost" value="0.1" step="0.05" min="0" max="1"></div>
+      <button class="btn" id="btnRecalc">重新计算</button>
+      <div class="cfg-note">
+        真实数据接口预留：后端提供 <code style="color:var(--blue)">GET /api/rotation/data</code> 返回
+        <code style="color:var(--blue)">{"dates":["YYYY-MM-DD",...],"growth":[创业板收盘,...],"dividend":[中证红利收盘,...]}</code>，
+        页面启动即自动尝试拉取，成功则切换为真实数据（左上角徽标变绿）。
+      </div>
+    </div>
+  </div>
+
+  <!-- 一、策略规则区 -->
+  <div class="card">
+    <div class="card-title"><span class="bar"></span>策略触发规则（双阈值方向一致性校验后）</div>
+    <div class="rules">
+      <div class="rule attack">
+        <h3>⚔ 进攻信号</h3>
+        <span class="cond">比值 ≤ 下阈值</span>
+        <p>成长相对低估 → <b>全仓创业板指</b>（押反弹）</p>
+      </div>
+      <div class="rule defend">
+        <h3>🛡 防守信号</h3>
+        <span class="cond">比值 ≥ 上阈值</span>
+        <p>成长相对高估 → <b>全仓中证红利</b>（转防御）</p>
+      </div>
+      <div class="rule hold">
+        <h3>⏳ 区间内</h3>
+        <span class="cond">下阈值 &lt; 比值 &lt; 上阈值</span>
+        <p>维持上一持仓，<b>避免频繁切换</b></p>
+      </div>
+    </div>
+    <div class="basis">
+      判定依据（市场口径）：比值 = 创业板指收盘 ÷ 中证红利收盘，历史多在 <b style="color:var(--txt)">0.3~0.7</b> 区间摆动
+      （2026-08 实盘约 0.61；低于 0.3 成长赔率改善、高于 0.7 成长溢价高企）。
+      原描述「低于 3.5 买创业板 / 高于 0.7 买红利」方向矛盾且 3.5 超出该比值历史区间，
+      本面板按「<b style="color:var(--txt)">低买成长、高买红利</b>」实现：≤下阈值(0.3) 进攻买创业板、≥上阈值(0.7) 防守买红利、
+      0.3~0.7 区间内维持原仓位避免频繁切换。
+    </div>
+  </div>
+
+  <!-- 二、信号与估值仪表盘 -->
+  <div class="card">
+    <div class="card-title"><span class="bar"></span>信号与估值仪表盘</div>
+    <div class="dash">
+      <div class="gauge">
+        <div class="ratio-big" id="curRatio">--</div>
+        <div class="meta">当前相对估值比（创业板指 / 中证红利）</div>
+        <div class="state-line">
+          <span class="dot" id="stateDot"></span>
+          <span class="state-txt" id="stateTxt">--</span>
+        </div>
+        <div class="meta" id="lastSigMeta">--</div>
+        <div class="bar-track"><div class="bar-fill" id="barFill"></div></div>
+        <div class="bar-tags"><span id="tagLo">下阈值 --</span><span id="tagHi">上阈值 --</span></div>
+        <div class="meta" style="margin-top:12px" id="stateExplain">--</div>
+      </div>
+      <div>
+        <div id="chartRatio" class="chart"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 三、历史有效性回测 -->
+  <div class="card">
+    <div class="card-title"><span class="bar"></span>历史有效性回测（近五年 · 同一份日频数据实时计算）</div>
+    <div class="metrics" id="metrics"></div>
+    <div id="chartNav" class="chart tall"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-title"><span class="bar"></span>信号触发明细（共 <span id="turnCount">0</span> 次调仓）</div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>触发日期</th><th>当时比值</th><th>动作</th><th>当时策略净值</th><th>说明</th></tr></thead>
+        <tbody id="tblBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script>
+"use strict";
+/* ================= 工具 ================= */
+const $ = (id) => document.getElementById(id);
+function fmtPct(x, d) { return (x == null || !isFinite(x)) ? "--" : (x * 100).toFixed(d == null ? 2 : d) + "%"; }
+function fmtNum(x, d) { return (x == null || !isFinite(x)) ? "--" : x.toFixed(d == null ? 4 : d); }
+/* 固定种子伪随机（mulberry32）：保证内置模拟数据可复现，演示效果稳定 */
+let _seed = 20260830;
+function srand() {
+  _seed |= 0; _seed = (_seed + 0x6D2B79F5) | 0;
+  let t = Math.imul(_seed ^ (_seed >>> 15), 1 | _seed);
+  t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+}
+function randn() {  // Box-Muller（基于固定种子）
+  let u = 0, v = 0;
+  while (u === 0) u = srand();
+  while (v === 0) v = srand();
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+}
+
+/* ================= 一、数据层 ================= */
+/* 内置模拟序列（近五年日频）：创业板指 / 中证红利 收盘价 + 比值
+ * 序列包含符合历史特征的行情段（创业板先熊后牛、红利稳步），使两个阈值均有机会触发；
+ * 下方所有信号与指标均由该序列实时计算，无任何硬编码结果。 */
+function genDates(from, to) {
+  const out = [], d = new Date(from);
+  const end = new Date(to);
+  while (d <= end) {
+    const w = d.getDay();
+    if (w !== 0 && w !== 6) out.push(d.toISOString().slice(0, 10));
+    d.setDate(d.getDate() + 1);
+  }
+  return out;
+}
+function genSeries() {
+  _seed = 20260830;   // 重置固定种子：任何一次计算/刷新都得到相同序列（可复现）
+  const dates = genDates("2021-09-01", "2026-08-28");
+  const n = dates.length;
+  const growth = new Array(n), dividend = new Array(n);
+  growth[0] = dividend[0] = 1000;
+  // 创业板按三段行情构造（段1 强于红利 → 段2 急跌 → 段3 复苏），
+  // 比值从区间内升破上阈值（触发防守），再跌破下阈值（触发进攻），完整演示双向信号。
+  const SEG = [[0, 0.42, 0.25], [0.42, 0.58, -0.90], [0.58, 1.0, 0.50]];
+  const annG = (i) => {
+    const f = i / n;
+    for (const [a, b, r] of SEG) if (f >= a && f < b) return Math.pow(1 + r, 1 / 252) - 1;  // 几何日化漂移
+    return Math.pow(1.05, 1 / 252) - 1;
+  };
+  const annD = Math.pow(1.06, 1 / 252) - 1;
+  // 噪声调低（创业板年化约10% / 红利约5%），让分段漂移主导比值路径，阈值信号稳定可演示
+  const volG = 0.10 / Math.sqrt(252), volD = 0.05 / Math.sqrt(252);
+  for (let i = 1; i < n; i++) {
+    growth[i]  = growth[i - 1]  * (1 + annG(i) + volG * randn());
+    dividend[i] = dividend[i - 1] * (1 + annD + volD * randn());
+  }
+  const SCALE = 0.5;   // 比值缩放：首日约 0.5（市场区间 0.3~0.7 内），段1 升破上阈值、段2 跌破下阈值
+  const ratio = growth.map((v, i) => (v / dividend[i]) * SCALE);
+  return { dates, growth, dividend, ratio };
+}
+
+/* 真实数据接口预留：启动即尝试拉取，成功则整体替换（前端零改动） */
+async function loadData() {
+  try {
+    const r = await fetch("/api/rotation/data");
+    if (r.ok) {
+      const j = await r.json();
+      if (j && Array.isArray(j.dates) && Array.isArray(j.growth) && Array.isArray(j.dividend)
+          && j.dates.length > 100) {
+        const ratio = j.growth.map((v, i) => v / j.dividend[i]);
+        $("srcBadge").textContent = "数据源：真实接口 /api/rotation/data";
+        $("srcBadge").classList.add("live");
+        return { dates: j.dates, growth: j.growth, dividend: j.dividend, ratio };
+      }
+    }
+  } catch (e) { /* 无后端 → 模拟数据 */ }
+  return genSeries();
+}
+
+/* ================= 二、策略引擎 ================= */
+function runStrategy(ratio, lo, hi) {
+  const n = ratio.length;
+  const pos = new Array(n);
+  // 首日按规则确定初始状态（区间内默认进攻偏好：创业板指）
+  let cur = ratio[0] <= lo ? "growth" : (ratio[0] >= hi ? "dividend" : "growth");
+  for (let i = 0; i < n; i++) {
+    if (ratio[i] <= lo) cur = "growth";
+    else if (ratio[i] >= hi) cur = "dividend";
+    pos[i] = cur;
+  }
+  const switches = [];                       // 调仓记录
+  for (let i = 1; i < n; i++) {
+    if (pos[i] !== pos[i - 1]) switches.push({ idx: i, date: null, ratio: ratio[i], to: pos[i] });
+  }
+  return { pos, switches };
+}
+
+function computeNav(growth, dividend, pos, cost) {
+  const n = growth.length;
+  const nav = new Array(n).fill(1);
+  for (let i = 1; i < n; i++) {
+    let r = pos[i] === "growth"
+      ? growth[i] / growth[i - 1] - 1
+      : dividend[i] / dividend[i - 1] - 1;
+    if (pos[i] !== pos[i - 1]) r -= cost;   // 调仓成本（双向各计一次在此简化）
+    nav[i] = nav[i - 1] * (1 + r);
+  }
+  return nav;
+}
+
+function computeMetrics(dates, growth, dividend, ratio, lo, hi, cost) {
+  const { pos, switches } = runStrategy(ratio, lo, hi);
+  switches.forEach((s) => { s.date = dates[s.idx]; });
+  const nav = computeNav(growth, dividend, pos, cost);
+  const n = nav.length, years = (n - 1) / 252;
+  const ann = Math.pow(nav[n - 1] / nav[0], 1 / years) - 1;
+  let peak = -1e18, mdd = 0;
+  for (const v of nav) { peak = Math.max(peak, v); mdd = Math.max(mdd, (peak - v) / peak); }
+  const rets = [];
+  for (let i = 1; i < n; i++) rets.push(nav[i] / nav[i - 1] - 1);
+  const mean = rets.reduce((a, b) => a + b, 0) / rets.length;
+  const sd = Math.sqrt(rets.reduce((a, b) => a + (b - mean) ** 2, 0) / rets.length) * Math.sqrt(252);
+  const sharpe = sd > 0 ? (ann - 0.02) / sd : 0;
+  // 基准：创业板/红利 50:50 等权日再平衡（买入持有、不调仓）
+  const bench = new Array(n).fill(1);
+  for (let i = 1; i < n; i++) {
+    const r = 0.5 * (growth[i] / growth[i - 1] - 1) + 0.5 * (dividend[i] / dividend[i - 1] - 1);
+    bench[i] = bench[i - 1] * (1 + r);
+  }
+  const benchAnn = Math.pow(bench[n - 1], 1 / years) - 1;
+  // 胜率：每个持仓区间净值不下降计为「赢」
+  const segs = [];
+  let start = 0;
+  for (const s of switches) { segs.push([start, s.idx]); start = s.idx; }
+  segs.push([start, n - 1]);
+  const wins = segs.filter(([a, b]) => nav[b] >= nav[a]).length;
+  const winRate = wins / segs.length;
+  // 当前持仓状态
+  const curPos = pos[n - 1];
+  const lastSw = switches.length ? switches[switches.length - 1] : null;
+  const holdStart = lastSw ? lastSw.idx : 0;
+  const holdDays = n - 1 - holdStart;
+  return {
+    dates, growth, dividend, ratio, lo, hi, cost, pos, switches, nav, bench, benchAnn,
+    ann, mdd, sharpe, turns: switches.length, winRate, excess: ann - benchAnn,
+    curPos, lastSig: lastSw ? lastSw.date : "开仓日（未发生调仓）", holdDays,
+    curRatio: ratio[n - 1],
+  };
+}
+
+/* ================= 三、渲染 ================= */
+let charts = {};
+function ensureChart(id) { if (!charts[id]) charts[id] = echarts.init($(id)); return charts[id]; }
+
+const UP = "#d93838", DOWN = "#0c9668", HOLD = "#c27803", BLUE = "#2f6fed", GRAY = "#93a1b3";
+
+function renderGauge(R) {
+  const r = R.curRatio;
+  $("curRatio").textContent = r.toFixed(2);
+  const state = R.curPos === "growth" ? "growth" : "defend";   // 区间内保持原持仓，态 = 当前持仓
+  const txt = state === "growth"
+    ? "⚔ 当前信号：全仓创业板指"
+    : "🛡 当前信号：全仓中证红利";
+  $("stateDot").className = "dot " + state;
+  $("stateTxt").textContent = txt;
+  $("stateTxt").className = "state-txt " + state;
+  $("lastSigMeta").innerHTML =
+    `上次信号触发：<b>${R.lastSig}</b>　·　当前持仓已持续 <b>${R.holdDays}</b> 个交易日`;
+  $("tagLo").textContent = `下阈值 ${R.lo}`;
+  $("tagHi").textContent = `上阈值 ${R.hi}`;
+  const pct = r <= R.lo ? 0 : r >= R.hi ? 100 : ((r - R.lo) / (R.hi - R.lo)) * 100;
+  $("barFill").style.left = pct + "%";
+  $("stateExplain").textContent = state === "growth"
+    ? "比值处于进攻区：创业板相对红利低估（≤ 下阈值），持有成长仓位等待均值回归。"
+    : "比值处于防守区：创业板相对红利高估（≥ 上阈值），持有红利仓位规避回撤。";
+  $("stateExplain").style.color = state === "growth" ? UP : DOWN;
+}
+
+function renderRatioChart(R) {
+  const c = ensureChart("chartRatio");
+  const dates = R.dates;
+  // 触发点：买创业板（→growth）红点、买红利（→dividend）绿点
+  const buyPts = [], sellPts = [];
+  for (const s of R.switches) {
+    const p = { value: [s.date, s.ratio], name: s.to === "growth" ? "买创业板" : "买红利" };
+    (s.to === "growth" ? buyPts : sellPts).push(p);
+  }
+  c.setOption({
+    animation: false, backgroundColor: "transparent",
+    tooltip: { trigger: "axis" },
+    legend: { top: 0, textStyle: { color: GRAY }, data: ["相对估值比", "买创业板", "买红利"] },
+    grid: { left: 56, right: 20, top: 34, bottom: 44 },
+    xAxis: { type: "category", data: dates, axisLabel: { color: GRAY }, axisLine: { lineStyle: { color: "#c6d2e2" } } },
+    yAxis: { scale: true, axisLabel: { color: GRAY }, splitLine: { lineStyle: { color: "#eef2f7" } } },
+    dataZoom: [
+      { type: "inside", xAxisIndex: 0, start: 0, end: 100 },
+      { type: "slider", xAxisIndex: 0, bottom: 4, height: 16, borderColor: "#c6d2e2" },
+    ],
+    series: [
+      {
+        name: "相对估值比", type: "line", data: R.ratio, showSymbol: false,
+        lineStyle: { color: BLUE, width: 1.6 },
+        markLine: {
+          symbol: "none", silent: true,
+          data: [
+            { yAxis: R.lo, lineStyle: { color: UP, type: "dashed" }, label: { formatter: `下阈值 ${R.lo}`, color: UP, position: "insideStartTop" } },
+            { yAxis: R.hi, lineStyle: { color: DOWN, type: "dashed" }, label: { formatter: `上阈值 ${R.hi}`, color: DOWN, position: "insideEndBottom" } },
+          ],
+        },
+      },
+      { name: "买创业板", type: "scatter", data: buyPts, symbol: "triangle", symbolSize: 11, itemStyle: { color: UP }, z: 5 },
+      { name: "买红利", type: "scatter", data: sellPts, symbol: "path://M0,0L10,0L5,8Z", symbolSize: 11, itemStyle: { color: DOWN }, z: 5 },
+    ],
+  }, true);
+}
+
+function renderNavChart(R) {
+  const c = ensureChart("chartNav");
+  const line = (name, data, color, w) => ({
+    name, type: "line", data, showSymbol: false,
+    lineStyle: { color, width: w || 1.6 },
+  });
+  c.setOption({
+    animation: false, backgroundColor: "transparent",
+    tooltip: { trigger: "axis", valueFormatter: (v) => v.toFixed(3) },
+    legend: { top: 0, textStyle: { color: GRAY },
+      data: ["策略净值", "创业板指", "中证红利", "基准(50/50)"] },
+    grid: { left: 56, right: 20, top: 34, bottom: 44 },
+    xAxis: { type: "category", data: R.dates, axisLabel: { color: GRAY }, axisLine: { lineStyle: { color: "#c6d2e2" } } },
+    yAxis: { scale: true, axisLabel: { color: GRAY, formatter: (v) => v.toFixed(1) },
+      splitLine: { lineStyle: { color: "#eef2f7" } } },
+    dataZoom: [
+      { type: "inside", xAxisIndex: 0, start: 0, end: 100 },
+      { type: "slider", xAxisIndex: 0, bottom: 4, height: 16, borderColor: "#c6d2e2" },
+    ],
+    series: [
+      line("策略净值", R.nav, "#2f6fed", 2.2),
+      line("创业板指", norm(R.growth), UP, 1.3),
+      line("中证红利", norm(R.dividend), DOWN, 1.3),
+      line("基准(50/50)", R.bench, HOLD, 1.2),
+    ],
+  }, true);
+  function norm(arr) { const b = arr[0]; return arr.map((v) => v / b); }
+}
+
+function renderMetrics(R) {
+  const cards = [
+    { k: "策略年化收益", v: fmtPct(R.ann), c: R.ann >= 0 ? "up" : "down", s: `基准年化 ${fmtPct(R.benchAnn)}` },
+    { k: "最大回撤", v: fmtPct(R.mdd), c: "down", s: "策略净值峰谷最大跌幅" },
+    { k: "夏普比率", v: fmtNum(R.sharpe, 2), c: "plain", s: "年化，无风险 2%" },
+    { k: "调仓次数", v: R.turns + " 次", c: "plain", s: "近五年信号切换" },
+    { k: "信号胜率", v: fmtPct(R.winRate), c: R.winRate >= 0.5 ? "up" : "down", s: "持仓区间不亏损占比" },
+    { k: "超额收益", v: fmtPct(R.excess), c: R.excess >= 0 ? "up" : "down", s: "相对 50/50 等权基准" },
+  ];
+  $("metrics").innerHTML = cards.map((m) => `
+    <div class="m-card"><div class="k">${m.k}</div><div class="v ${m.c}">${m.v}</div><div class="s">${m.s}</div></div>`).join("");
+}
+
+function renderTable(R) {
+  $("turnCount").textContent = R.turns;
+  const rows = R.switches.map((s) => {
+    const tag = s.to === "growth" ? `<span class="tag growth">全仓创业板指</span>` : `<span class="tag defend">全仓中证红利</span>`;
+    return `<tr>
+      <td>${s.date}</td>
+      <td>${s.ratio.toFixed(2)}</td>
+      <td>${tag}</td>
+      <td>${R.nav[s.idx].toFixed(4)}</td>
+      <td style="font-family:inherit;color:var(--txt2)">${s.to === "growth" ? "比值 ≤ 下阈值 · 进攻" : "比值 ≥ 上阈值 · 防守"}</td>
+    </tr>`;
+  });
+  $("tblBody").innerHTML = rows.length ? rows.join("") :
+    `<tr><td colspan="5" style="text-align:center;color:var(--txt3)">近五年未触发任何调仓（阈值过宽或数据区间未覆盖）</td></tr>`;
+}
+
+/* ================= 主流程 ================= */
+let DATA = null;
+async function init() {
+  DATA = await loadData();
+  recalc();
+  window.addEventListener("resize", () => { Object.values(charts).forEach((c) => c.resize()); });
+}
+function recalc() {
+  const lo = Number($("cfgLo").value), hi = Number($("cfgHi").value);
+  const cost = Number($("cfgCost").value) / 100;
+  const R = computeMetrics(DATA.dates, DATA.growth, DATA.dividend, DATA.ratio, lo, hi, cost);
+  renderGauge(R);
+  renderRatioChart(R);
+  renderNavChart(R);
+  renderMetrics(R);
+  renderTable(R);
+  if (typeof window._R === "object") window._R = R;   // 调试用
+}
+$("btnRecalc").onclick = recalc;
+init();
+</script>
+</body>
+</html>
