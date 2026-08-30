@@ -4,7 +4,7 @@ name: 每周信号推送
 
 on:
   schedule:
-    - cron: "30 9 * * 5"   # UTC 09:30 周五（北京时间 17:30）
+    - cron: "30 9 * * *"   # UTC 09:30 周五（北京时间 17:30）
   workflow_dispatch:
 
 permissions:

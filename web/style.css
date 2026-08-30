@@ -292,8 +292,8 @@ td.pos { color: var(--text-2); font-size: 12px; }
   background: #fdeeee; padding: 1px 8px; border-radius: 999px;
 }
 .mcard h3 { margin: 0 0 10px; font-size: 14px; color: var(--text); }
-.mgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px 14px; }
-.mitem { display: flex; justify-content: space-between; font-size: 12.5px; }
+.mgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px 14px; }
+.mitem { display: flex; justify-content: space-between; font-size: 12.5px; min-width: 0; }
 .mitem .k { color: var(--text-3); }
 .mitem .v { font-weight: 600; font-family: Consolas, monospace; }
 .v-up { color: var(--red); }

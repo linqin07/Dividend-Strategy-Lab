@@ -68,7 +68,7 @@
   .cfg-note { width: 100%; font-size: 12px; color: var(--txt3); }
 
   /* 规则卡 */
-  .rules { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .rules { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
   .rule {
     border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px;
     background: var(--panel2); position: relative; overflow: hidden;
@@ -111,10 +111,10 @@
   .bar-tags { display: flex; justify-content: space-between; font-size: 11px; color: var(--txt3); margin-top: 4px; font-family: Consolas, monospace; }
 
   /* 指标卡 */
-  .metrics { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; }
-  .m-card { background: var(--panel2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }
+  .metrics { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; }
+  .m-card { min-width: 0; background: var(--panel2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }
   .m-card .k { font-size: 12px; color: var(--txt2); }
-  .m-card .v { font-size: 20px; font-weight: 700; font-family: Consolas, monospace; margin-top: 4px; }
+  .m-card .v { font-size: 20px; font-weight: 700; font-family: Consolas, monospace; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .m-card .s { font-size: 11px; color: var(--txt3); margin-top: 2px; }
   .v.up { color: var(--red); } .v.down { color: var(--green); } .v.plain { color: var(--txt); }
 
@@ -136,11 +136,11 @@
 
   @media (max-width: 900px) {
     .dash { grid-template-columns: 1fr; }
-    .metrics { grid-template-columns: repeat(3, 1fr); }
+    .metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .rules { grid-template-columns: 1fr; }
   }
   @media (max-width: 520px) {
-    .metrics { grid-template-columns: repeat(2, 1fr); }
+    .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .brand h1 { font-size: 17px; }
     .ratio-big { font-size: 40px; }
   }
