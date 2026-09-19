@@ -1,0 +1,105 @@
+# 统一工作流：拉取最新行情 → 重算回测与信号 → 组装静态站点 → 发布 GitHub Pages
+#
+# 为什么不再提交 output/：
+#   output 是派生产物（由 funds.json + 行情派生），每次 backtest/signal 都会整份重写，
+#   且 computed_at 每次运行都变，导致本地与 CI 反复互相覆盖（git 冲突）。
+#   改造后 output/ 不再进 git（已加入 .gitignore），部署时现场生成，
+#   master 上只保留代码，冲突根除、仓库不再膨胀。
+#
+# 触发与时间（cron 一律按 UTC，与仓库时区无关）：
+#   push        代码变更后重新部署
+#   schedule    13 16 * * *  = 北京时间每天 00:13（午夜刷新，拿到上一交易日收盘数据）
+#               35 8  * * 1-5 = 北京时间工作日 16:35（收盘后刷新，能拿到当日数据）
+#               30 9  * * 5   = 北京时间周五 17:30（额外发送信号邮件）
+#   dispatch    手动刷新/部署（可勾选发邮件、跳过数据校验）
+name: 刷新数据并发布页面
+
+on:
+  push:
+    branches: [master]
+  schedule:
+    - cron: "13 16 * * *"
+    - cron: "35 8 * * 1-5"
+    - cron: "30 9 * * 5"
+  workflow_dispatch:
+    inputs:
+      notify:
+        description: "同时发送信号邮件"
+        type: boolean
+        default: false
+      skip_freshness_check:
+        description: "跳过数据新鲜度校验（数据源异常时强制部署代码改动）"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 部署组互斥：同一时刻只跑一个发布流程
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      # 让 datetime.now() / 缓存新鲜度判断 / output 里的时间戳都按北京时间
+      TZ: Asia/Shanghai
+      # 数据源链（CI 中去掉 tdx，避免额外依赖）
+      PROVIDER_ORDER: "eastmoney,csindex,tencent,akshare"
+      # 周五定时任务、或手动勾选时发邮件
+      NOTIFY: "${{ github.event.schedule == '30 9 * * 5' || inputs.notify == true }}"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: 安装依赖
+        run: pip install -r requirements.txt
+
+      - name: 拉取最新行情并重算回测 + 信号
+        env:
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          MAIL_TO: ${{ secrets.MAIL_TO }}
+        run: |
+          python run.py backtest --all --force --start "2022-01-01"
+          if [ "$NOTIFY" = "true" ]; then
+            echo "本次启用邮件推送"
+            python run.py signal --all --notify --force
+          else
+            python run.py signal --all --force
+          fi
+
+      - name: 校验数据新鲜度（失败则中止，线上保留上一次结果）
+        if: inputs.skip_freshness_check != true
+        run: python scripts/check_output_freshness.py
+
+      - name: 组装静态站点（web 页面 + 现场生成的结果）
+        run: |
+          mkdir -p _site
+          cp -r web/* _site/
+          rm -f _site/test_rsi.js
+          cp -r output _site/output
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

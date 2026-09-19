@@ -70,27 +70,37 @@ MAIL_TO=receiver@example.com
 
 ## GitHub Actions
 
-| 工作流 | 触发 | 说明 |
+只有一个工作流 `refresh-and-deploy.yml`，把「刷新数据」和「发布页面」合成一条流水线：
+
+| 触发 | 时间（北京时间） | 说明 |
 |---|---|---|
-| `daily-refresh.yml` | 每天 00:13 + 工作日 16:35（北京时间）/ 手动 | 拉取最新行情 → 重算回测+信号 → 提交 output/，页面数据每天更新 |
-| `weekly-signal.yml` | 每周五 17:30（北京时间）/ 手动 | 计算信号 → 发邮件 → 提交 output/ |
-| `backtest.yml` | 手动 | 全量回测 → 提交 output/ |
-| `push-refresh.yml` | push 到 master | 代码提交后自动重算回测+信号 → 提交 output/ |
-| `deploy-pages.yml` | push 到 main | web/ + output/ 发布到 GitHub Pages |
+| push 到 master | 代码提交后 | 重算 → 发布 |
+| schedule | 每天 00:13 | 午夜刷新（拿到上一交易日收盘数据） |
+| schedule | 工作日 16:35 | 收盘后刷新（拿到当日数据） |
+| schedule | 周五 17:30 | 额外发送信号邮件 |
+| 手动 dispatch | — | 可勾选「发邮件」「跳过数据校验」 |
+
+cron 一律按 **UTC** 计算，所以文件里写的是 `13 16 * * *` = 北京时间次日 00:13；
+工作流内设 `TZ: Asia/Shanghai`，保证 `computed_at`、缓存新鲜度判断都用北京时间。
 
 首次使用需在 **Settings → Secrets and variables → Actions** 添加 `SMTP_HOST / SMTP_PORT / SMTP_USER / SMTP_PASS / MAIL_TO`；在 **Settings → Pages** 选择 Source 为 "GitHub Actions"。
 
-### 页面数据为什么能每天更新
+### 数据为什么不进 git
 
-GitHub Pages 只托管静态文件，页面本身不会拉数据。做法是让 `daily-refresh.yml` 定时跑一次
-`backtest --all --force` + `signal --all --force`，把最新的 `output/*.json` 提交回仓库，
-再由 `deploy-pages.yml` 自动重新发布，页面读到的就是最新数据（前端优先 `/api/*`，无后端时回退 `output/*.json`）。
+`output/`（回测与信号结果）和 `data/`（行情缓存）都是**可再生的派生产物**：每次运行都整份重写，
+时间戳必然变化，提交它们会与 CI 反复互相覆盖并产生 git 冲突。现在二者都已加入 `.gitignore`：
 
-- Actions 的 cron 一律按 **UTC** 计算：`13 16 * * *` = 北京时间次日 00:13。
-- 时区由工作流里的 `TZ: Asia/Shanghai` 指定，保证 `computed_at`、缓存新鲜度判断都用北京时间。
-- 午夜那次拿到的是**上一交易日收盘**数据；工作日 16:35 那次能拿到当日数据（不需要可删掉该 cron）。
-- 刷新后会跑 `scripts/check_output_freshness.py`：全部标的都取不到新行情（数据源整体故障）时中止提交，
-  页面继续沿用上一次结果，不会被缓存兜底的陈旧数据覆盖。
+- **部署时现场生成**：工作流执行 `backtest --all --force` + `signal --all --force`，
+  组装 `web/ + output/` 后直接发布 Pages，**全程不向仓库提交任何数据**；
+- **本地无需拉取**：跑 `python run.py serve` 前执行一次 `python run.py backtest --all --force` 即可，
+  `data/` 与 `output/` 目录会自动重建（缓存缺失时会重新联网抓取）。
+- **仓库只保留代码与配置**：`funds.json` 是唯一的标的配置真源，必须提交。
+
+### 数据源异常时的行为
+
+部署前会跑 `scripts/check_output_freshness.py`：若**全部标的**都取不到新行情（数据源整体故障），
+则中止本次部署，线上继续保留上一次成功发布的结果，不会被陈旧缓存覆盖。
+如需在数据源异常时仍要发布代码改动，手动触发时勾选 `skip_freshness_check`。
 
 ## 六种策略
 
@@ -115,7 +125,7 @@ GitHub Pages 只托管静态文件，页面本身不会拉数据。做法是让 
 ```
 run.py                    CLI 入口（backtest 支持 --force 强制刷新行情）
 scripts/
-  check_output_freshness.py  校验 output/ 数据新鲜度（CI 提交前闸门）
+  check_output_freshness.py  校验 output/ 数据新鲜度（部署前闸门）
 strategy_lab/
   config.py               基金配置/常量
   indicators.py           周RSI/MA/BOLL/拆分抹平
@@ -129,9 +139,9 @@ strategy_lab/
   datasource/dividend_yield.py  实时股息率（中证官网估值 + 动态TTM兜底）
   server.py               旧版 http.server 服务（已由 api.py 取代，保留备用）
 web/                      前端单页（ECharts，全部数据通过接口获取）
-output/                   回测/信号 JSON（接口读取；无后端时页面直接 fetch 兜底）
-data/                     行情缓存（git 忽略）
-.github/workflows/        CI：每周推送 / 手动回测 / Pages 发布
+output/                   回测/信号 JSON（运行时生成，git 忽略；接口读取，无后端时页面直接 fetch）
+data/                     行情缓存（运行时生成，git 忽略）
+.github/workflows/        CI：refresh-and-deploy.yml（定时刷新数据 + 发布 Pages）
 ```
 
 ## 免责声明
