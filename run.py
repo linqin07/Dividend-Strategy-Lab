@@ -33,6 +33,7 @@ def main():
     p_bt.add_argument("--all", action="store_true", help="对 funds.json 全部标的回测")
     p_bt.add_argument("--start", default="2022-01-01")
     p_bt.add_argument("--end", default=None)
+    p_bt.add_argument("--force", action="store_true", help="强制重新拉取行情（忽略当日缓存）")
     p_bt.set_defaults(func=_cmd_backtest)
 
     p_sig = sub.add_parser("signal", help="计算最新周信号（可选邮件推送）")
@@ -81,8 +82,9 @@ def _cmd_backtest(args):
             targets = [f for f in funds if f.code == "932305"] or funds[:1]
     results = []
     for f in targets:
-        print(f"回测 {f.code} {f.name}（{args.start} ~ {args.end or '最新'}）...")
-        r = run_fund_backtest(f, start=args.start, end=args.end)
+        print(f"回测 {f.code} {f.name}（{args.start} ~ {args.end or '最新'}）"
+              f"{' [强制刷新行情]' if args.force else ''}...")
+        r = run_fund_backtest(f, start=args.start, end=args.end, force=args.force)
         results.append(r)
         for s in r.get("strategies", []):
             m = s.get("metrics") or {}

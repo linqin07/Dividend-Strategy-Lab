@@ -1,6 +1,14 @@
 # -*- coding: utf-8 -*-
-"""腾讯行情接口（ifzq.gtimg.cn）：指数 / ETF 日K（不复权），二级兜底"""
+"""腾讯行情接口（web.ifzq.gtimg.cn）：ETF / 股票日K（不复权），二级兜底
+
+注意：
+1. 域名必须是 web.ifzq.gtimg.cn，直接用 ifzq.gtimg.cn 会返回空数据；
+2. param 的 count 字段上限约 2000 根，传 60000 这类大值会返回空数据；
+3. 中证指数（如 932305）腾讯不支持，需走 csindex 源。
+"""
 from __future__ import annotations
+
+from datetime import datetime
 
 import requests
 
@@ -22,8 +30,11 @@ class TencentProvider(DataProvider):
 
     def fetch_daily(self, code, market, kind, start=None, end=None):
         sym = _symbol(code, market, kind)
-        url = "https://ifzq.gtimg.cn/appstock/app/fqkline/get"
-        params = {"param": f"{sym},day,,,,60000,"}   # 不复权
+        url = "https://web.ifzq.gtimg.cn/appstock/app/fqkline/get"
+        # 不复权（fq 字段留空）；count 超过 2000 会被接口判为非法并返回空
+        day_start = (start or "1990-01-01").replace("/", "-")
+        day_end = (end or datetime.now().strftime("%Y-%m-%d")).replace("/", "-")
+        params = {"param": f"{sym},day,{day_start},{day_end},2000,"}
         try:
             r = requests.get(url, params=params, headers=UA, timeout=15)
             data = (r.json().get("data") or {}).get(sym) or {}

@@ -9,7 +9,7 @@
 - 🔴 **手动回测**：页面一键回测（后台任务 + 进度提示），或 CLI 批量回测
 - 🧩 **基金管理**：页面新增/移除基金，自定义 RSI 买卖阈值；默认标的 `932305` 中证智选高股息
 - 📧 **邮件推送**：SMTP（QQ 邮箱授权码等），红买绿卖 HTML 表格
-- 🤖 **GitHub Actions**：每周五 17:30 自动计算信号 + 邮件推送 + 发布静态页面
+- 🤖 **GitHub Actions**：每日自动刷新行情与回测（页面每天更新）+ 每周五 17:30 信号邮件推送 + 发布静态页面
 - 🔌 **数据源降级链**：eastmoney → csindex（中证官网）→ tencent → akshare → tdx，本地 JSON 缓存兜底
 
 ## 快速开始
@@ -72,12 +72,25 @@ MAIL_TO=receiver@example.com
 
 | 工作流 | 触发 | 说明 |
 |---|---|---|
+| `daily-refresh.yml` | 每天 00:13 + 工作日 16:35（北京时间）/ 手动 | 拉取最新行情 → 重算回测+信号 → 提交 output/，页面数据每天更新 |
 | `weekly-signal.yml` | 每周五 17:30（北京时间）/ 手动 | 计算信号 → 发邮件 → 提交 output/ |
 | `backtest.yml` | 手动 | 全量回测 → 提交 output/ |
 | `push-refresh.yml` | push 到 master | 代码提交后自动重算回测+信号 → 提交 output/ |
 | `deploy-pages.yml` | push 到 main | web/ + output/ 发布到 GitHub Pages |
 
 首次使用需在 **Settings → Secrets and variables → Actions** 添加 `SMTP_HOST / SMTP_PORT / SMTP_USER / SMTP_PASS / MAIL_TO`；在 **Settings → Pages** 选择 Source 为 "GitHub Actions"。
+
+### 页面数据为什么能每天更新
+
+GitHub Pages 只托管静态文件，页面本身不会拉数据。做法是让 `daily-refresh.yml` 定时跑一次
+`backtest --all --force` + `signal --all --force`，把最新的 `output/*.json` 提交回仓库，
+再由 `deploy-pages.yml` 自动重新发布，页面读到的就是最新数据（前端优先 `/api/*`，无后端时回退 `output/*.json`）。
+
+- Actions 的 cron 一律按 **UTC** 计算：`13 16 * * *` = 北京时间次日 00:13。
+- 时区由工作流里的 `TZ: Asia/Shanghai` 指定，保证 `computed_at`、缓存新鲜度判断都用北京时间。
+- 午夜那次拿到的是**上一交易日收盘**数据；工作日 16:35 那次能拿到当日数据（不需要可删掉该 cron）。
+- 刷新后会跑 `scripts/check_output_freshness.py`：全部标的都取不到新行情（数据源整体故障）时中止提交，
+  页面继续沿用上一次结果，不会被缓存兜底的陈旧数据覆盖。
 
 ## 六种策略
 
@@ -100,7 +113,9 @@ MAIL_TO=receiver@example.com
 ## 目录结构
 
 ```
-run.py                    CLI 入口
+run.py                    CLI 入口（backtest 支持 --force 强制刷新行情）
+scripts/
+  check_output_freshness.py  校验 output/ 数据新鲜度（CI 提交前闸门）
 strategy_lab/
   config.py               基金配置/常量
   indicators.py           周RSI/MA/BOLL/拆分抹平
