@@ -56,6 +56,20 @@ window.API_BASE = "";
     </div>
   </section>
 
+  <!-- RSI 拆分抹平序列（置顶） -->
+  <section class="panel" id="panelRsi" data-collapsible data-lazy="rsi">
+    <div class="panel-head" role="button" tabindex="0" aria-expanded="true">
+      <h2>RSI 拆分抹平序列</h2>
+      <div class="panel-tools">
+        <div class="seg" id="periodSegRsi" title="日K / 周K 切换"></div>
+        <span id="rsiSummary" class="meta-text"></span>
+      </div>
+      <span class="chevron" aria-hidden="true">▾</span>
+    </div>
+    <div class="rsi-settings" id="rsiSettings"></div>
+    <div id="chartRsi" class="chart"></div>
+  </section>
+
   <!-- 策略表现对比（默认展开） -->
   <section class="panel" id="panelMetrics" data-collapsible>
     <div class="panel-head" role="button" tabindex="0" aria-expanded="true">
@@ -75,8 +89,8 @@ window.API_BASE = "";
   </section>
 
   <!-- 行情走势与交易点位 -->
-  <section class="panel collapsed" id="panelKline" data-collapsible>
-    <div class="panel-head" role="button" tabindex="0" aria-expanded="false">
+  <section class="panel" id="panelKline" data-collapsible>
+    <div class="panel-head" role="button" tabindex="0" aria-expanded="true">
       <h2>行情走势与交易点位</h2>
       <div class="panel-tools">
         <div class="seg" id="periodSegKline" title="日K / 周K 切换"></div>
@@ -88,8 +102,8 @@ window.API_BASE = "";
   </section>
 
   <!-- 实时股息率汇总 -->
-  <section class="panel collapsed" id="yieldPanel" data-collapsible data-lazy="yield">
-    <div class="panel-head" role="button" tabindex="0" aria-expanded="false">
+  <section class="panel" id="yieldPanel" data-collapsible data-lazy="yield">
+    <div class="panel-head" role="button" tabindex="0" aria-expanded="true">
       <h2>实时股息率汇总</h2>
       <div class="panel-tools">
         <span id="yieldMeta" class="meta-text"></span>
@@ -106,23 +120,9 @@ window.API_BASE = "";
     <div class="yield-note" id="yieldNote"></div>
   </section>
 
-  <!-- 周线 RSI -->
-  <section class="panel collapsed" id="panelRsi" data-collapsible data-lazy="rsi">
-    <div class="panel-head" role="button" tabindex="0" aria-expanded="false">
-      <h2>RSI 拆分抹平序列</h2>
-      <div class="panel-tools">
-        <div class="seg" id="periodSegRsi" title="日K / 周K 切换"></div>
-        <span id="rsiSummary" class="meta-text"></span>
-      </div>
-      <span class="chevron" aria-hidden="true">▾</span>
-    </div>
-    <div class="rsi-settings" id="rsiSettings"></div>
-    <div id="chartRsi" class="chart"></div>
-  </section>
-
   <!-- BOLL 布林带 -->
-  <section class="panel collapsed" id="panelBoll" data-collapsible data-lazy="boll">
-    <div class="panel-head" role="button" tabindex="0" aria-expanded="false">
+  <section class="panel" id="panelBoll" data-collapsible data-lazy="boll">
+    <div class="panel-head" role="button" tabindex="0" aria-expanded="true">
       <h2>BOLL 布林带</h2>
       <div class="panel-tools">
         <div class="seg" id="periodSegBoll" title="日K / 周K 切换"></div>
@@ -135,8 +135,8 @@ window.API_BASE = "";
   </section>
 
   <!-- 策略净值曲线 -->
-  <section class="panel collapsed" id="panelEquity" data-collapsible data-lazy="equity">
-    <div class="panel-head" role="button" tabindex="0" aria-expanded="false">
+  <section class="panel" id="panelEquity" data-collapsible data-lazy="equity">
+    <div class="panel-head" role="button" tabindex="0" aria-expanded="true">
       <h2>策略净值曲线</h2>
       <span class="chevron" aria-hidden="true">▾</span>
     </div>
@@ -144,8 +144,8 @@ window.API_BASE = "";
   </section>
 
   <!-- 交易明细 -->
-  <section class="panel collapsed" id="panelTrades" data-collapsible data-lazy="trades">
-    <div class="panel-head" role="button" tabindex="0" aria-expanded="false">
+  <section class="panel" id="panelTrades" data-collapsible data-lazy="trades">
+    <div class="panel-head" role="button" tabindex="0" aria-expanded="true">
       <h2 id="tradesTitle">交易明细</h2>
       <span id="tradesCount" class="meta-text"></span>
       <span class="chevron" aria-hidden="true">▾</span>
@@ -159,8 +159,8 @@ window.API_BASE = "";
   </section>
 
   <!-- 指标解读（精简） -->
-  <section class="panel collapsed" id="panelIndicators" data-collapsible>
-    <div class="panel-head" role="button" tabindex="0" aria-expanded="false">
+  <section class="panel" id="panelIndicators" data-collapsible>
+    <div class="panel-head" role="button" tabindex="0" aria-expanded="true">
       <h2>指标解读</h2>
       <span class="chevron" aria-hidden="true">▾</span>
     </div>

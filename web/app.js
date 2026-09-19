@@ -275,9 +275,11 @@ async function init() {
   await detectMode();
   await buildTabs();
   bindEvents();
+  expandAllPanels();           // 所有面板默认展开（不再首屏折叠）
   renderPeriodSegs();          // 日K/周K 切换标签
   if (S.codes.length) await selectCode(S.codes[0].code);
   else $("emptyState").hidden = false;
+  autoUpdateAfterLoad();       // 缓存数据渲染完成后，后台自动更新行情/信号
 }
 
 async function detectMode() {
@@ -331,13 +333,19 @@ async function buildTabs() {
 }
 
 /* ================= 标的切换 ================= */
-async function selectCode(code) {
+/**
+ * 加载标的：默认走缓存（后端直接读 output/*.json 与信号缓存，秒开）
+ * @param opts.force    true=行情已更新后调用，信号跳过缓存实时重算（?force=1）
+ * @param opts.quiet    true=不弹「加载中」提示（用于首屏后的自动更新）
+ */
+async function selectCode(code, opts) {
   S.code = code;
+  const force = !!(opts && opts.force);
   document.querySelectorAll(".fund-tab").forEach((el) =>
     el.classList.toggle("active", el.dataset.code === code));
   $("emptyState").hidden = true;
   $("mainContent").hidden = true;
-  toast(`加载 ${code} 回测数据...`);
+  if (!(opts && opts.quiet)) toast(`加载 ${code} 回测数据...`);
   try {
     // 接口优先：GET /api/backtest/{code}；后端不可用时回退 output/*.json
     S.bt = await fetchData(`/api/backtest/${code}`, `output/${code}_backtest.json`);
@@ -346,7 +354,8 @@ async function selectCode(code) {
   }
   try {
     // 接口优先：GET /api/signal/{code}（后端默认读缓存，?force=1 实时重算）
-    S.sig = await fetchData(`/api/signal/${code}`, `output/${code}_signal.json`);
+    S.sig = await fetchData(`/api/signal/${code}${force ? "?force=1" : ""}`,
+      `output/${code}_signal.json`);
   } catch (e) {
     S.sig = null;
     if (S.serveMode) {  // 缓存缺失时实时计算
@@ -380,8 +389,8 @@ async function selectCode(code) {
     renderPeriodSegs();       // 周期标签（含当前参数摘要）
     renderRsiSettings();      // RSI 参数设置项（按当前周期载入）
     renderBollSettings();     // BOLL 参数设置项（按当前周期载入）
-    renderKline();            // 首屏核心：仅渲染默认展开的 K 线图
-    refreshRenderedPanels();  // 已展开过的懒加载面板随标的重绘（保持数据新鲜）
+    renderKline();            // 主图 K 线
+    renderAllPanels();        // 面板默认全展开：渲染全部内容（含随标的切换的刷新）
   }
 }
 
@@ -443,8 +452,9 @@ function renderSignal(sig) {
   }
 }
 
-/* ================= 面板折叠 + 懒加载（优化首屏加载） ================= */
-/* 默认只展开核心面板；其余面板首次展开时才渲染对应图表/请求数据 */
+/* ================= 面板折叠 + 懒加载 ================= */
+/* 默认全部展开并渲染（expandAllPanels + renderAllPanels）；用户仍可点击标题手动折叠，
+ * 手动折叠的面板保持懒加载（展开时才渲染），避免折叠态下初始化 ECharts 拿到 0 尺寸。 */
 const PANEL_LAZY = {
   yield: renderYieldPanel,
   rsi: renderRsi,
@@ -485,14 +495,30 @@ function togglePanel(id) {
   Object.values(S.charts).forEach((c) => { try { c && c.resize(); } catch (err) { /* ignore */ } });
 }
 
-/** 切换标的后，重绘已展开过的懒加载面板，保持内容与当前标的一致 */
-function refreshRenderedPanels() {
-  Object.keys(_panelRendered).forEach((id) => {
-    const panel = document.getElementById(id);
-    if (panel && !panel.classList.contains("collapsed") && PANEL_LAZY[panel.dataset.lazy]) {
-      PANEL_LAZY[panel.dataset.lazy]();
-    }
+/** 展开所有面板：页面默认全展开，不再首屏折叠（用户仍可点击标题手动折叠） */
+function expandAllPanels() {
+  document.querySelectorAll(".panel[data-collapsible]").forEach((panel) => {
+    panel.classList.remove("collapsed");
+    const head = panel.querySelector(".panel-head");
+    if (head) head.setAttribute("aria-expanded", "true");
   });
+}
+
+/**
+ * 渲染全部「已展开」面板：首次进入时逐个渲染，切换标的时整体刷新。
+ * 每个面板渲染后让出一次主线程，避免一次性渲染多张图表造成首屏卡顿。
+ * 被用户手动折叠的面板跳过（保持折叠态，等展开时再按懒加载渲染）。
+ */
+async function renderAllPanels() {
+  const panels = [...document.querySelectorAll(".panel[data-collapsible][data-lazy]")];
+  for (const panel of panels) {
+    if (panel.classList.contains("collapsed")) continue;
+    const fn = PANEL_LAZY[panel.dataset.lazy];
+    if (!fn) continue;
+    _panelRendered[panel.id] = true;
+    try { fn(); } catch (e) { console.warn("面板渲染失败", panel.id, e); }
+    await new Promise((r) => setTimeout(r, 0));
+  }
 }
 
 /* ---------- BOLL 布林带参数（渲染层，按日/周独立保存） ---------- */
@@ -1112,7 +1138,7 @@ function bindEvents() {
   bindPanelToggles();
   $("strategySelect").onchange = (e) => onStrategyChange(e.target.value);
   $("btnBacktest").onclick = runBacktest;
-  $("btnRefresh").onclick = refreshData;
+  $("btnRefresh").onclick = () => refreshData();   // 手动更新：失败要提示（勿传事件对象）
   $("btnFunds").onclick = openFundModal;
   $("btnYieldRefresh").onclick = () => renderYieldPanel(true);
   $("fundModalClose").onclick = closeFundModal;
@@ -1143,8 +1169,15 @@ async function runBacktest() {
   }
 }
 
-async function refreshData() {
-  if (!S.serveMode) return;
+/**
+ * 更新数据：刷新行情缓存 → 信号实时重算 → 重绘页面（股息率面板同步强制刷新）
+ * @param silent true=首屏自动更新（失败不打扰，仅在控制台告警）
+ */
+async function refreshData(silent) {
+  if (!S.serveMode || !S.code) return;
+  const badge = $("modeBadge");
+  const prevBadge = badge ? badge.textContent : "";
+  if (badge && silent) badge.textContent = "数据更新中";
   try {
     const r = await fetchJSON(apiUrl("/api/refresh"), {
       method: "POST",
@@ -1153,11 +1186,27 @@ async function refreshData() {
     });
     await pollJob(r.job_id, async () => {
       toast("行情缓存已更新");
-      await selectCode(S.code);
+      // 行情已更新 → 信号缓存过期，用 force 重算；quiet 避免重复弹「加载中」
+      await selectCode(S.code, { force: true, quiet: !!silent });
+      if (_panelRendered["yieldPanel"]) await renderYieldPanel(true);
     });
   } catch (e) {
-    toast("刷新失败：" + e.message, true);
+    if (silent) console.warn("[自动更新] 刷新失败：", e.message);
+    else toast("刷新失败：" + e.message, true);
+  } finally {
+    if (badge && silent) badge.textContent = prevBadge || "已连接接口";
   }
+}
+
+/** 首屏用缓存秒开后，自动在后台更新一次数据（仅一次，不阻塞浏览） */
+let _autoUpdated = false;
+async function autoUpdateAfterLoad() {
+  if (_autoUpdated || !S.serveMode || !S.code) return;
+  _autoUpdated = true;
+  // 让首屏渲染先完成，再发起更新请求
+  await new Promise((r) => setTimeout(r, 300));
+  toast("已加载缓存数据，正在后台更新行情...");
+  await refreshData(true);
 }
 
 function pollJob(jobId, onDone) {

@@ -61,6 +61,19 @@ if (typeof echarts === "undefined") {
 
 <main id="mainContent" hidden>
 
+  <section class="panel" id="panelRsi" data-collapsible data-lazy="rsi">
+    <div class="panel-head" role="button" tabindex="0" aria-expanded="true">
+      <h2>RSI 拆分抹平序列</h2>
+      <div class="panel-tools">
+        <div class="seg" id="periodSegRsi" title="日K / 周K 切换（主图同步重算）"></div>
+        <span id="rsiSummary" class="meta-text"></span>
+      </div>
+      <span class="chevron" aria-hidden="true">▾</span>
+    </div>
+    <div class="rsi-settings" id="rsiSettings"></div>
+    <div id="chartRsi" class="chart"></div>
+  </section>
+
   <section class="panel" id="panelMetrics" data-collapsible>
     <div class="panel-head" role="button" tabindex="0" aria-expanded="true">
       <h2>策略表现对比</h2>
@@ -78,8 +91,8 @@ if (typeof echarts === "undefined") {
     <div id="metricCards" class="metric-cards"></div>
   </section>
 
-  <section class="panel collapsed" id="yieldPanel" data-collapsible data-lazy="yield">
-    <div class="panel-head" role="button" tabindex="0" aria-expanded="false">
+  <section class="panel" id="yieldPanel" data-collapsible data-lazy="yield">
+    <div class="panel-head" role="button" tabindex="0" aria-expanded="true">
       <h2>实时股息率汇总</h2>
       <div class="panel-tools">
         <span id="yieldMeta" class="meta-text"></span>
@@ -103,8 +116,8 @@ if (typeof echarts === "undefined") {
     <div class="yield-note" id="yieldNote"></div>
   </section>
 
-  <section class="panel collapsed" id="panelIndicators" data-collapsible>
-    <div class="panel-head" role="button" tabindex="0" aria-expanded="false">
+  <section class="panel" id="panelIndicators" data-collapsible>
+    <div class="panel-head" role="button" tabindex="0" aria-expanded="true">
       <h2>指标解读 · 红利策略知识库</h2>
       <div class="panel-tools">
         <span class="meta-text">口径参照《红利ETF低波择时策略的回测比较与操作规则研究》</span>
@@ -209,21 +222,8 @@ if (typeof echarts === "undefined") {
     <div id="chartKline" class="chart chart-tall"></div>
   </section>
 
-  <section class="panel collapsed" id="panelRsi" data-collapsible data-lazy="rsi">
-    <div class="panel-head" role="button" tabindex="0" aria-expanded="false">
-      <h2>RSI 拆分抹平序列</h2>
-      <div class="panel-tools">
-        <div class="seg" id="periodSegRsi" title="日K / 周K 切换（主图同步重算）"></div>
-        <span id="rsiSummary" class="meta-text"></span>
-      </div>
-      <span class="chevron" aria-hidden="true">▾</span>
-    </div>
-    <div class="rsi-settings" id="rsiSettings"></div>
-    <div id="chartRsi" class="chart"></div>
-  </section>
-
-  <section class="panel collapsed" id="panelBoll" data-collapsible data-lazy="boll">
-    <div class="panel-head" role="button" tabindex="0" aria-expanded="false">
+  <section class="panel" id="panelBoll" data-collapsible data-lazy="boll">
+    <div class="panel-head" role="button" tabindex="0" aria-expanded="true">
       <h2>BOLL 布林带（价格通道）</h2>
       <div class="panel-tools">
         <div class="seg" id="periodSegBoll" title="日K / 周K 切换（与主图、RSI 同步）"></div>
@@ -235,16 +235,16 @@ if (typeof echarts === "undefined") {
     <div id="chartBoll" class="chart"></div>
   </section>
 
-  <section class="panel collapsed" id="panelEquity" data-collapsible data-lazy="equity">
-    <div class="panel-head" role="button" tabindex="0" aria-expanded="false">
+  <section class="panel" id="panelEquity" data-collapsible data-lazy="equity">
+    <div class="panel-head" role="button" tabindex="0" aria-expanded="true">
       <h2>策略净值曲线（初始资金按各基金仓位金额归一化）</h2>
       <span class="chevron" aria-hidden="true">▾</span>
     </div>
     <div id="chartEquity" class="chart"></div>
   </section>
 
-  <section class="panel collapsed" id="panelTrades" data-collapsible data-lazy="trades">
-    <div class="panel-head" role="button" tabindex="0" aria-expanded="false">
+  <section class="panel" id="panelTrades" data-collapsible data-lazy="trades">
+    <div class="panel-head" role="button" tabindex="0" aria-expanded="true">
       <h2 id="tradesTitle">交易明细</h2>
       <span id="tradesCount" class="meta-text"></span>
       <span class="chevron" aria-hidden="true">▾</span>
