@@ -10,8 +10,9 @@
 #   push        代码变更后重新部署
 #   schedule    13 16 * * *  = 北京时间每天 00:13（午夜刷新，拿到上一交易日收盘数据）
 #               35 8  * * 1-5 = 北京时间工作日 16:35（收盘后刷新，能拿到当日数据）
-#               30 9  * * 5   = 北京时间周五 17:30（额外发送信号邮件）
-#   dispatch    手动刷新/部署（可勾选发邮件、跳过数据校验）
+#   dispatch    手动刷新/部署（可勾选跳过数据校验）
+#
+# 注：信号邮件由独立的 weekly-signal.yml 负责（北京时间周五 17:30），本工作流不发邮件。
 name: 刷新数据并发布页面
 
 on:
@@ -20,13 +21,8 @@ on:
   schedule:
     - cron: "13 16 * * *"
     - cron: "35 8 * * 1-5"
-    - cron: "30 9 * * 5"
   workflow_dispatch:
     inputs:
-      notify:
-        description: "同时发送信号邮件"
-        type: boolean
-        default: false
       skip_freshness_check:
         description: "跳过数据新鲜度校验（数据源异常时强制部署代码改动）"
         type: boolean
@@ -50,8 +46,6 @@ jobs:
       TZ: Asia/Shanghai
       # 数据源链（CI 中去掉 tdx，避免额外依赖）
       PROVIDER_ORDER: "eastmoney,csindex,tencent,akshare"
-      # 周五定时任务、或手动勾选时发邮件
-      NOTIFY: "${{ github.event.schedule == '30 9 * * 5' || inputs.notify == true }}"
     steps:
       - uses: actions/checkout@v4
 
@@ -64,20 +58,10 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: 拉取最新行情并重算回测 + 信号
-        env:
-          SMTP_HOST: ${{ secrets.SMTP_HOST }}
-          SMTP_PORT: ${{ secrets.SMTP_PORT }}
-          SMTP_USER: ${{ secrets.SMTP_USER }}
-          SMTP_PASS: ${{ secrets.SMTP_PASS }}
-          MAIL_TO: ${{ secrets.MAIL_TO }}
         run: |
           python run.py backtest --all --force --start "2022-01-01"
-          if [ "$NOTIFY" = "true" ]; then
-            echo "本次启用邮件推送"
-            python run.py signal --all --notify --force
-          else
-            python run.py signal --all --force
-          fi
+          # 邮件推送由 weekly-signal.yml 单独负责，这里只算信号供页面使用
+          python run.py signal --all --force
 
       - name: 校验数据新鲜度（失败则中止，线上保留上一次结果）
         if: inputs.skip_freshness_check != true

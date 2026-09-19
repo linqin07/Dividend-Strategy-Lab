@@ -70,18 +70,27 @@ MAIL_TO=receiver@example.com
 
 ## GitHub Actions
 
-只有一个工作流 `refresh-and-deploy.yml`，把「刷新数据」和「发布页面」合成一条流水线：
+只剩两个工作流，职责不重叠：
+
+**`refresh-and-deploy.yml`** —— 把「刷新数据」和「发布页面」合成一条流水线
 
 | 触发 | 时间（北京时间） | 说明 |
 |---|---|---|
 | push 到 master | 代码提交后 | 重算 → 发布 |
 | schedule | 每天 00:13 | 午夜刷新（拿到上一交易日收盘数据） |
 | schedule | 工作日 16:35 | 收盘后刷新（拿到当日数据） |
-| schedule | 周五 17:30 | 额外发送信号邮件 |
-| 手动 dispatch | — | 可勾选「发邮件」「跳过数据校验」 |
+| 手动 dispatch | — | 可勾选「跳过数据校验」 |
 
-cron 一律按 **UTC** 计算，所以文件里写的是 `13 16 * * *` = 北京时间次日 00:13；
-工作流内设 `TZ: Asia/Shanghai`，保证 `computed_at`、缓存新鲜度判断都用北京时间。
+**`weekly-signal.yml`** —— 只负责信号邮件，不碰数据
+
+| 触发 | 时间（北京时间） | 说明 |
+|---|---|---|
+| schedule | 周五 17:30 | 计算最新信号 → 发送邮件 |
+| 手动 dispatch | — | 随时测试邮件推送是否正常 |
+
+cron 一律按 **UTC** 计算，所以文件里写的是 `13 16 * * *` = 北京时间次日 00:13、
+`30 9 * * 5` = 北京时间周五 17:30；两个工作流均设 `TZ: Asia/Shanghai`，
+保证 `computed_at`、缓存新鲜度判断都用北京时间。二者都不向仓库提交任何数据（见下节）。
 
 首次使用需在 **Settings → Secrets and variables → Actions** 添加 `SMTP_HOST / SMTP_PORT / SMTP_USER / SMTP_PASS / MAIL_TO`；在 **Settings → Pages** 选择 Source 为 "GitHub Actions"。
 
@@ -141,7 +150,7 @@ strategy_lab/
 web/                      前端单页（ECharts，全部数据通过接口获取）
 output/                   回测/信号 JSON（运行时生成，git 忽略；接口读取，无后端时页面直接 fetch）
 data/                     行情缓存（运行时生成，git 忽略）
-.github/workflows/        CI：refresh-and-deploy.yml（定时刷新数据 + 发布 Pages）
+.github/workflows/        CI：refresh-and-deploy.yml（刷新数据 + 发布）、weekly-signal.yml（周五邮件）
 ```
 
 ## 免责声明
