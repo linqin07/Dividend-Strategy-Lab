@@ -1,17 +1,69 @@
 # -*- coding: utf-8 -*-
-"""SMTP 邮件推送（smtplib + email.mime）。配置缺失/发送失败仅告警，不阻塞主流程。"""
+"""SMTP 邮件推送（smtplib + email.mime）。配置缺失/发送失败仅告警，不阻塞主流程。
+
+多收件人：MAIL_TO / MAIL_CC / MAIL_BCC 均可用「英文逗号、中文逗号、分号或空白」分隔，
+例如 MAIL_TO=a@qq.com,b@163.com,c@126.com
+- MAIL_TO  必填，收件人（所有收件人互相可见）
+- MAIL_CC  可选，抄送
+- MAIL_BCC 可选，密送（不会出现在邮件头里，适合不想互相暴露邮箱的场合）
+"""
 from __future__ import annotations
 
+import re
 import smtplib
-import sys
-from datetime import datetime
+from email.mime.image import MIMEImage
+from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+
+# 邮件正文（含跷跷板面板与图表占位）由 mail_report 组装，此处保持 import 路径不变
+from strategy_lab.mail_report import build_email   # noqa: F401
 
 REQUIRED_KEYS = ("SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASS", "MAIL_TO")
 
+# 分隔符：英文/中文逗号、英文/中文分号、空白、换行
+_ADDR_SPLIT = re.compile(r"[,，;；\s]+")
 
-def send_email(subject: str, body_html: str, env: dict) -> tuple[bool, str]:
-    """返回 (成功?, 说明)。SSL(465) 或 STARTTLS(587) 自动选择。"""
+
+def parse_addrs(raw: str | None) -> list:
+    """把配置字符串拆成邮箱列表（去空、去重复、保持顺序）"""
+    if not raw:
+        return []
+    out = []
+    for x in _ADDR_SPLIT.split(str(raw)):
+        x = x.strip()
+        if x and x not in out:
+            out.append(x)
+    return out
+
+
+def _build_msg(subject: str, body_html: str, sender: str, to_list: list,
+               cc_list: list, images: dict | None = None):
+    """构造邮件对象：无图走 MIMEText；有图走 multipart/related + cid 内嵌"""
+    if not images:
+        msg = MIMEText(body_html, "html", "utf-8")
+    else:
+        msg = MIMEMultipart("related")
+        msg.attach(MIMEText(body_html, "html", "utf-8"))
+        for cid, data in images.items():
+            img = MIMEImage(data, _subtype="png")
+            img.add_header("Content-ID", f"<{cid}>")
+            img.add_header("Content-Disposition", "inline", filename=f"{cid}.png")
+            msg.attach(img)
+    msg["Subject"] = subject
+    msg["From"] = sender
+    msg["To"] = ", ".join(to_list)
+    if cc_list:
+        msg["Cc"] = ", ".join(cc_list)
+    return msg
+
+
+def send_email(subject: str, body_html: str, env: dict,
+               images: dict | None = None) -> tuple[bool, str]:
+    """返回 (成功?, 说明)。SSL(465) 或 STARTTLS(587) 自动选择。
+
+    MAIL_TO 支持多个地址（逗号分隔）；MAIL_CC / MAIL_BCC 可选。
+    images: {cid: png 字节}，正文用 <img src="cid:xxx"> 引用，随邮件内嵌发送。
+    """
     missing = [k for k in REQUIRED_KEYS if not env.get(k)]
     if missing:
         return False, f"邮件配置缺失：{','.join(missing)}（请在 .env 中填写后重试）"
@@ -19,12 +71,15 @@ def send_email(subject: str, body_html: str, env: dict) -> tuple[bool, str]:
     port = int(env["SMTP_PORT"])
     user = env["SMTP_USER"]
     pwd = env["SMTP_PASS"]
-    to_list = [x.strip() for x in env["MAIL_TO"].split(",") if x.strip()]
+    to_list = parse_addrs(env["MAIL_TO"])
+    cc_list = parse_addrs(env.get("MAIL_CC"))
+    bcc_list = parse_addrs(env.get("MAIL_BCC"))
+    if not to_list:
+        return False, "MAIL_TO 无有效收件人（请用逗号分隔多个邮箱）"
+    # 实际投递名单 = 收件人 + 抄送 + 密送（密送不写入邮件头）
+    rcpt_list = list(dict.fromkeys(to_list + cc_list + bcc_list))
 
-    msg = MIMEText(body_html, "html", "utf-8")
-    msg["Subject"] = subject
-    msg["From"] = user
-    msg["To"] = ", ".join(to_list)
+    msg = _build_msg(subject, body_html, user, to_list, cc_list, images)
     try:
         if port == 465:
             server = smtplib.SMTP_SSL(host, port, timeout=20)
@@ -33,78 +88,17 @@ def send_email(subject: str, body_html: str, env: dict) -> tuple[bool, str]:
             server.starttls()
         try:
             server.login(user, pwd)
-            server.sendmail(user, to_list, msg.as_string())
+            server.sendmail(user, rcpt_list, msg.as_string())
         finally:
             server.quit()
-        return True, f"已发送至 {', '.join(to_list)}"
+        detail = f"已发送至 {', '.join(to_list)}"
+        if cc_list:
+            detail += f"；抄送 {', '.join(cc_list)}"
+        if bcc_list:
+            detail += f"；密送 {len(bcc_list)} 人"
+        return True, detail
     except Exception as e:
         return False, f"发送失败：{e}"
 
-
-def build_email(signal_rows: list) -> tuple:
-    """信号汇总邮件：主题 + HTML 正文（红涨绿跌遵循A股惯例）"""
-    now = datetime.now().strftime("%Y-%m-%d %H:%M")
-    acted = [r for r in signal_rows if r.get("action") in ("买入", "卖出")]
-    subject = "【策略信号】" + ("；".join(
-        f"{r['name']} {r['action']}（RSI {r['rsi']}）" for r in acted) or "本周无买卖信号")
-
-    rows_html = ""
-    for r in signal_rows:
-        if r.get("error"):
-            color, badge, action = "#999", "错误", r["error"]
-            state = "-"
-            rsi = "-"
-        else:
-            state = r["state"]
-            rsi = r["rsi"]
-            if r["action"] == "买入":
-                color, badge = "#c62828", "买入"
-            elif r["action"] == "卖出":
-                color, badge = "#1b5e20", "卖出"
-            else:
-                color, badge = "#555", "观望"
-            action = r.get("note", "")
-        amt = r.get("suggested_amount")
-        if amt is not None:
-            over = r.get("over_position")
-            amount_html = f"¥{amt:,.0f}"
-            if over:
-                amount_html += ' <span style="color:#c62828;font-size:11px;">⚠超仓</span>'
-            if r.get("multiplier", 1.0) > 1.0:
-                amount_html += f'<br><span style="color:#999;font-size:11px;">×{r["multiplier"]:.2f}</span>'
-        else:
-            amount_html = "-"
-        rows_html += f"""
-        <tr>
-          <td style="padding:8px 12px;border-bottom:1px solid #eee;">{r.get('name','')}<br>
-              <span style="color:#999;font-size:12px;">{r.get('code','')}</span></td>
-          <td style="padding:8px 12px;border-bottom:1px solid #eee;">{rsi}</td>
-          <td style="padding:8px 12px;border-bottom:1px solid #eee;">{state}</td>
-          <td style="padding:8px 12px;border-bottom:1px solid #eee;">
-              <span style="color:{color};font-weight:bold;">{badge}</span></td>
-          <td style="padding:8px 12px;border-bottom:1px solid #eee;text-align:right;white-space:nowrap;">{amount_html}</td>
-          <td style="padding:8px 12px;border-bottom:1px solid #eee;font-size:12px;">{action}</td>
-        </tr>"""
-
-    body = f"""
-    <div style="font-family:'Microsoft YaHei',sans-serif;max-width:640px;margin:0 auto;">
-      <h2 style="color:#1a237e;">红利策略 · 每周信号推送</h2>
-      <p style="color:#666;">{now} 自动生成 ｜ 规则：周线RSI(14)状态机，周五收盘确认，下一交易日开盘执行</p>
-      <table style="border-collapse:collapse;width:100%;background:#fff;">
-        <tr style="background:#1a237e;color:#fff;">
-          <th style="padding:10px 12px;text-align:left;">标的</th>
-          <th style="padding:10px 12px;">周RSI</th>
-          <th style="padding:10px 12px;">状态</th>
-          <th style="padding:10px 12px;">建议</th>
-          <th style="padding:10px 12px;">建议金额</th>
-          <th style="padding:10px 12px;text-align:left;">说明</th>
-        </tr>
-        {rows_html}
-      </table>
-      <p style="color:#999;font-size:12px;margin-top:16px;">
-        口径：不复权实际盘面价；RSI 45买 / 持仓超卖线全卖；重复同向信号忽略。<br>
-        建议金额 = 仓位金额 × 浮动仓位比例 × 倍率（倍率按 RSI 信号强弱线性加码，模式可在页面「基金管理」中设置）。<br>
-        本邮件为历史规则回测研究，不构成投资建议。
-      </p>
-    </div>"""
-    return subject, body
+# 注：旧版 build_email 已于此处移除，现统一由 strategy_lab.mail_report.build_email 提供
+#     （支持跷跷板面板 + 图表内嵌），上方 import 已重导出，调用方无需改动。

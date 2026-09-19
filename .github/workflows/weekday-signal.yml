@@ -1,23 +1,24 @@
-# 每周信号推送：周五收盘后计算全部标的信号并发送邮件。
-# 北京时间周五 17:30 = UTC 周五 09:30（cron 一律按 UTC 计算）。
+# 工作日信号推送：周一至周五收盘后计算全部标的信号并发送邮件。
+# 北京时间工作日 17:30 = UTC 工作日 09:30（cron 一律按 UTC 计算）。
+# cron 的 "1-5" 即周一~周五，周末不打扰（周末页面仍由发布工作流照常刷新）。
 #
 # 与「刷新数据并发布页面」的分工：
 #   本工作流只负责算信号 + 发邮件，不再向仓库提交 output/。
 #   output/ 与 data/ 已退出 git，由发布工作流在部署时现场生成，
 #   这样本地与 CI 不会再互相覆盖、产生 git 冲突。
 # 若只是想重新算数据并更新页面，用「刷新数据并发布页面」手动触发即可。
-name: 每周信号推送
+name: 工作日信号推送
 
 on:
   schedule:
-    - cron: "30 9 * * *"   # UTC 09:30 周五（北京时间 17:30）
-  workflow_dispatch:       # 手动测试邮件：Actions → 每周信号推送 → Run workflow
+    - cron: "30 9 * * 1-5"   # UTC 周一~周五 09:30（北京时间 17:30）
+  workflow_dispatch:          # 手动测试邮件：Actions → 工作日信号推送 → Run workflow
 
 permissions:
   contents: read
 
 concurrency:
-  group: weekly-signal
+  group: weekday-signal
   cancel-in-progress: false
 
 jobs:
@@ -46,4 +47,6 @@ jobs:
           SMTP_USER: ${{ secrets.SMTP_USER }}
           SMTP_PASS: ${{ secrets.SMTP_PASS }}
           MAIL_TO: ${{ secrets.MAIL_TO }}
+          MAIL_CC: ${{ secrets.MAIL_CC }}     # 可选：抄送
+          MAIL_BCC: ${{ secrets.MAIL_BCC }}   # 可选：密送
         run: python run.py signal --all --notify --force

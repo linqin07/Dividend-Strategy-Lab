@@ -12,7 +12,7 @@
 #               35 8  * * 1-5 = 北京时间工作日 16:35（收盘后刷新，能拿到当日数据）
 #   dispatch    手动刷新/部署（可勾选跳过数据校验）
 #
-# 注：信号邮件由独立的 weekly-signal.yml 负责（北京时间周五 17:30），本工作流不发邮件。
+# 注：信号邮件由独立的 weekday-signal.yml 负责（北京时间工作日 17:30），本工作流不发邮件。
 name: 刷新数据并发布页面
 
 on:
@@ -60,7 +60,7 @@ jobs:
       - name: 拉取最新行情并重算回测 + 信号
         run: |
           python run.py backtest --all --force --start "2022-01-01"
-          # 邮件推送由 weekly-signal.yml 单独负责，这里只算信号供页面使用
+          # 邮件推送由 weekday-signal.yml 单独负责，这里只算信号供页面使用
           python run.py signal --all --force
           # 实时股息率汇总落盘（output/yields.json），随站点发布供静态页面直接读取；
           # 官网估值偶发断连，失败不阻断部署（静态页会自动降级为本地回测 TTM）

@@ -8,8 +8,9 @@
 - 📊 **页面展示**：信号横幅、6 策略指标卡片、K线+交易点位、周 RSI、净值曲线、交易明细
 - 🔴 **手动回测**：页面一键回测（后台任务 + 进度提示），或 CLI 批量回测
 - 🧩 **基金管理**：页面新增/移除基金，自定义 RSI 买卖阈值；默认标的 `932305` 中证智选高股息
-- 📧 **邮件推送**：SMTP（QQ 邮箱授权码等），红买绿卖 HTML 表格
-- 🤖 **GitHub Actions**：每日自动刷新行情与回测（页面每天更新）+ 每周五 17:30 信号邮件推送 + 发布静态页面
+- 📧 **邮件推送**：SMTP（QQ 邮箱授权码等），图文简报——周线 RSI(14) 曲线图 + 创业板/红利跷跷板面板 + 看板快捷入口
+- 🪀 **跷跷板面板**：创业板指/中证红利轮动参考，60 日收益差分位 + 趋势过滤 → 红利补仓/减仓建议（`/rotation.html`）
+- 🤖 **GitHub Actions**：每日自动刷新行情与回测（页面每天更新）+ 工作日 17:30 信号邮件推送 + 发布静态页面
 - 🔌 **数据源降级链**：eastmoney → csindex（中证官网）→ tencent → akshare → tdx，本地 JSON 缓存兜底
 
 ## 快速开始
@@ -50,7 +51,9 @@ python run.py serve                # 启动 FastAPI 服务，打开 http://127.0
 python run.py backtest --all                      # 全部标的回测（默认 2022-01-01 起）
 python run.py backtest --code 515080 --start 2022-01-01
 python run.py signal --all                        # 计算最新周信号
-python run.py signal --all --notify --force       # 强刷数据并发送邮件
+python run.py signal --all --preview              # 本地生成邮件预览 output/mail_preview.html（不发信）
+python run.py signal --all --notify --force       # 强刷数据并发送邮件（含 RSI 图 + 跷跷板面板）
+python run.py rotation --force                    # 生成创业板/红利跷跷板面板数据 output/rotation.json
 python run.py yields                              # 汇总当前基金的实时股息率并缓存至 output/yields.json（静态页面直接读取）
 ```
 
@@ -81,18 +84,22 @@ MAIL_TO=receiver@example.com
 | schedule | 工作日 16:35 | 收盘后刷新（拿到当日数据） |
 | 手动 dispatch | — | 可勾选「跳过数据校验」 |
 
-**`weekly-signal.yml`** —— 只负责信号邮件，不碰数据
+**`weekday-signal.yml`** —— 只负责信号邮件，不碰数据
 
 | 触发 | 时间（北京时间） | 说明 |
 |---|---|---|
-| schedule | 周五 17:30 | 计算最新信号 → 发送邮件 |
+| schedule | 周一~周五 17:30 | 计算最新信号 + 跷跷板面板 → 发送图文邮件 |
 | 手动 dispatch | — | 随时测试邮件推送是否正常 |
 
+邮件内容：每只标的的周线 RSI(14) 曲线图 + 创业板/红利跷跷板面板（建议红利仓位、收益差分位）
++ 电脑版/手机版看板快捷入口；图表由 matplotlib 生成并以 cid 内嵌（未装 matplotlib 时自动降级为纯表格）。
+本地预览不发信：`python run.py signal --all --preview` → `output/mail_preview.html`。
+
 cron 一律按 **UTC** 计算，所以文件里写的是 `13 16 * * *` = 北京时间次日 00:13、
-`30 9 * * 5` = 北京时间周五 17:30；两个工作流均设 `TZ: Asia/Shanghai`，
+`30 9 * * 1-5` = 北京时间工作日 17:30；两个工作流均设 `TZ: Asia/Shanghai`，
 保证 `computed_at`、缓存新鲜度判断都用北京时间。二者都不向仓库提交任何数据（见下节）。
 
-首次使用需在 **Settings → Secrets and variables → Actions** 添加 `SMTP_HOST / SMTP_PORT / SMTP_USER / SMTP_PASS / MAIL_TO`；在 **Settings → Pages** 选择 Source 为 "GitHub Actions"。
+首次使用需在 **Settings → Secrets and variables → Actions** 添加 `SMTP_HOST / SMTP_PORT / SMTP_USER / SMTP_PASS / MAIL_TO`（可选再加 `MAIL_CC` 抄送、`MAIL_BCC` 密送）；在 **Settings → Pages** 选择 Source 为 "GitHub Actions"。
 
 ### 数据为什么不进 git
 
@@ -142,7 +149,9 @@ strategy_lab/
   strategies/             策略注册表 + 6 策略实现
   backtest/               事件驱动回测引擎 + 指标
   signal.py               最新周信号（推送/横幅共用）
-  notify.py               SMTP 邮件
+  rotation.py             创业板/红利跷跷板面板数据 + 四档红利仓位状态机
+  mail_report.py          邮件图表（周RSI/跷跷板）与 HTML 正文组装
+  notify.py               SMTP 投递（支持 cid 内嵌图）
   api.py                  FastAPI 服务（/api/* 接口 + 托管 web/）
   jobs.py                 后台任务管理（异步回测/刷新 + 进度）
   datasource/dividend_yield.py  实时股息率（中证官网估值 + 动态TTM兜底）
@@ -150,7 +159,7 @@ strategy_lab/
 web/                      前端单页（ECharts，全部数据通过接口获取）
 output/                   回测/信号 JSON（运行时生成，git 忽略；接口读取，无后端时页面直接 fetch）
 data/                     行情缓存（运行时生成，git 忽略）
-.github/workflows/        CI：refresh-and-deploy.yml（刷新数据 + 发布）、weekly-signal.yml（周五邮件）
+.github/workflows/        CI：refresh-and-deploy.yml（刷新数据 + 发布）、weekday-signal.yml（工作日邮件）
 ```
 
 ## 免责声明

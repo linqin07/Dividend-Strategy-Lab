@@ -40,6 +40,8 @@ def main():
     p_sig.add_argument("--all", action="store_true", help="全部标的")
     p_sig.add_argument("--code", default=None, help="指定标的（默认仅主标的932305）")
     p_sig.add_argument("--notify", action="store_true", help="发送邮件推送")
+    p_sig.add_argument("--preview", action="store_true",
+                       help="生成邮件 HTML 预览 output/mail_preview.html（含图表，不发信）")
     p_sig.add_argument("--force", action="store_true", help="强制刷新行情缓存")
     p_sig.set_defaults(func=_cmd_signal)
 
@@ -125,14 +127,59 @@ def _cmd_signal(args):
         print(f"{f.code} {f.name}: 周RSI={sig.get('rsi')} 状态={state} "
               f"建议={sig.get('action')}{amt_txt} （{sig.get('note')}）")
 
+    def _build_mail_extras():
+        """构建跷跷板面板 + 图表（失败降级为无附件，不阻断发信）"""
+        rotation_local, images_local = None, {}
+        try:
+            from strategy_lab.mail_report import (render_rsi_chart,
+                                                  render_rotation_diff_chart,
+                                                  render_rotation_pos_chart)
+            from strategy_lab.rotation import build_rotation_data, compute_panel
+            rot_data = build_rotation_data(force=False)
+            rotation_local = compute_panel(rot_data)
+            for f in targets:
+                png = render_rsi_chart(f)
+                if png:
+                    images_local[f"rsi_{f.code}"] = png
+            png = render_rotation_diff_chart(rot_data, rotation_local)
+            if png:
+                images_local["rot_diff"] = png
+            png = render_rotation_pos_chart(rotation_local)
+            if png:
+                images_local["rot_pos"] = png
+            cur = rotation_local["cur"]
+            pct_txt = f"{cur['pct'] * 100:.1f}%" if cur["pct"] is not None else "--"
+            print(f"跷跷板面板：建议红利仓位 {cur['w'] * 100:.0f}%"
+                  f"（60日收益差分位 {pct_txt}）· 图表 {len(images_local)} 张")
+        except Exception as e:
+            print(f"⚠️ 跷跷板面板/图表生成失败，邮件仅含信号部分：{e}")
+        return rotation_local, images_local
+
+    if args.preview:
+        rotation, images = _build_mail_extras()
+        subject, body = build_email(rows, rotation=rotation, images=images)
+        # 图片以独立文件落盘，预览页可直接引用（与邮件内嵌 cid 一一对应）
+        import base64
+        for cid, data in images.items():
+            body = body.replace(f"cid:{cid}",
+                                "data:image/png;base64," + base64.b64encode(data).decode())
+        from strategy_lab.config import OUTPUT_DIR
+        fp = os.path.join(OUTPUT_DIR, "mail_preview.html")
+        with open(fp, "w", encoding="utf-8") as fh:
+            fh.write(body)
+        print(f"邮件预览已生成：{fp}（主题：{subject}）")
+
     if args.notify:
         # .env 优先，缺失项用环境变量补齐（GitHub Actions Secrets 走环境变量）
         env = load_env()
-        for k in ("SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASS", "MAIL_TO"):
+        for k in ("SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASS", "MAIL_TO",
+                  "MAIL_CC", "MAIL_BCC"):
             if os.environ.get(k):
                 env[k] = os.environ[k]
-        subject, body = build_email(rows)
-        ok, msg = send_email(subject, body, env)
+        # 附加内容：创业板/红利跷跷板面板 + 图表（任一环节失败都不阻断发信）
+        rotation, images = _build_mail_extras()
+        subject, body = build_email(rows, rotation=rotation, images=images)
+        ok, msg = send_email(subject, body, env, images=images)
         print(("✅ " if ok else "⚠️ ") + msg)
     print("信号结果已写入 output/")
 
@@ -174,7 +221,11 @@ SMTP_HOST=smtp.qq.com
 SMTP_PORT=465
 SMTP_USER=your_account@qq.com
 SMTP_PASS=你的授权码（非登录密码）
+# 收件人：多个邮箱用逗号分隔（英文/中文逗号、分号均可），所有收件人互相可见
 MAIL_TO=receiver@example.com
+# 可选：抄送 / 密送（密送不出现在邮件头，适合不想互相暴露邮箱）
+# MAIL_CC=cc1@example.com,cc2@example.com
+# MAIL_BCC=bcc1@example.com,bcc2@example.com
 
 # 数据源顺序覆盖（可选，逗号分隔；CI 中建议去掉 tdx）
 # PROVIDER_ORDER=eastmoney,csindex,tencent,akshare

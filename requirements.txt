@@ -4,6 +4,9 @@ requests>=2.31
 akshare>=1.14
 tdx-mcp>=0.1
 
+# 邮件推送：周线 RSI / 跷跷板面板图表（未安装时邮件自动降级为纯表格，不阻断发信）
+matplotlib>=3.8
+
 # 服务（前后端分离）：FastAPI 提供 /api/*，web/ 为前端页面
 fastapi>=0.110
 uvicorn>=0.27
