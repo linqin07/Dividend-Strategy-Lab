@@ -58,7 +58,14 @@ class Handler(BaseHTTPRequestHandler):
                 from strategy_lab.datasource.dividend_yield import summarize_yields, clear_cache
                 if "force=1" in self.path:
                     clear_cache()
-                self._send(200, summarize_yields())
+                s = summarize_yields()
+                # 顺手落盘缓存（供静态页面直接读 output/yields.json），失败不影响接口返回
+                try:
+                    from strategy_lab.report import write_yields_json
+                    write_yields_json(s)
+                except Exception:
+                    pass
+                self._send(200, s)
             except Exception as e:
                 self._send(500, {"error": f"股息率汇总失败: {e}"})
         elif path.startswith("/api/job/"):

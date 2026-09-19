@@ -51,7 +51,7 @@ python run.py backtest --all                      # 全部标的回测（默认 
 python run.py backtest --code 515080 --start 2022-01-01
 python run.py signal --all                        # 计算最新周信号
 python run.py signal --all --notify --force       # 强刷数据并发送邮件
-python run.py yields                              # 汇总当前基金的实时股息率
+python run.py yields                              # 汇总当前基金的实时股息率并缓存至 output/yields.json（静态页面直接读取）
 ```
 
 ## 邮件推送配置

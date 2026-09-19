@@ -95,5 +95,18 @@ def write_summary(funds: list, results: list | None = None) -> None:
     _atomic_write(os.path.join(OUTPUT_DIR, "summary.json"), summary)
 
 
+def write_yields_json(summary: dict | None = None) -> dict:
+    """实时股息率汇总落盘为 output/yields.json。
+
+    静态页面（GitHub Pages）没有 /api/yields，靠这份缓存展示官网实时估值；
+    CI（refresh-and-deploy.yml）会在部署前运行 `python run.py yields` 现场生成。
+    """
+    if summary is None:
+        from strategy_lab.datasource.dividend_yield import summarize_yields
+        summary = summarize_yields()
+    _atomic_write(os.path.join(OUTPUT_DIR, "yields.json"), summary)
+    return summary
+
+
 def _atomic_write(path: str, obj) -> None:
     atomic_write_json(path, obj)

@@ -16,6 +16,7 @@
   POST   /api/refresh              刷新行情缓存（异步任务）
   GET    /api/job/{job_id}         任务状态与结果
   GET    /api/yields               实时股息率汇总（?force=1 绕过短缓存）
+  GET    /api/rotation/data        创业板指/中证红利 跷跷板面板数据（?force=1 强制刷新行情）
 
 根路径 / 挂载 web/ 静态前端；前后端分离部署时前端可独立托管，
 只需在页面设置 window.API_BASE 指向本服务地址。
@@ -262,9 +263,57 @@ def api_yields(force: bool = Query(False, description="true=绕过进程内短�
         from strategy_lab.datasource.dividend_yield import summarize_yields, clear_cache
         if force:
             clear_cache()
-        return summarize_yields()
+        s = summarize_yields()
+        # 顺手落盘缓存（供静态页面直接读 output/yields.json），失败不影响接口返回
+        try:
+            from strategy_lab.report import write_yields_json
+            write_yields_json(s)
+        except Exception:
+            pass
+        return s
     except Exception as e:
         raise HTTPException(500, f"股息率汇总失败: {e}")
+
+
+# ---------- 创业板/红利 跷跷板面板 ----------
+_ROT_CACHE: dict = {"at": 0.0, "data": None}
+_ROT_CACHE_TTL = 900.0   # 进程内短缓存 15 分钟（force=1 绕过）
+
+
+@app.get("/api/rotation/data")
+def api_rotation_data(force: bool = Query(False, description="true=强制刷新行情并重建")):
+    """创业板指(399006)/中证红利(000922) 近五年对齐日线。
+
+    优先用行情缓存快速构建；?force=1 走在线源刷新。成功即落盘 output/rotation.json，
+    供静态托管页面（GitHub Pages 等无后端场景）直接读取。"""
+    import time as _t
+    now = _t.time()
+    if not force and _ROT_CACHE["data"] and now - _ROT_CACHE["at"] < _ROT_CACHE_TTL:
+        return _ROT_CACHE["data"]
+    # 非强制时先试读 output/rotation.json（当日已生成则直接用，避免重复构建）
+    if not force:
+        cached = _read_output("rotation.json")
+        if cached and cached.get("dates"):
+            try:
+                from datetime import datetime as _dt
+                asof = _dt.strptime(cached.get("asof", ""), "%Y-%m-%d %H:%M:%S")
+                if (_dt.now() - asof).total_seconds() < 86400:
+                    _ROT_CACHE.update({"at": now, "data": cached})
+                    return cached
+            except Exception:
+                pass
+    try:
+        from strategy_lab.rotation import write_rotation_json
+        data = write_rotation_json(force=force)
+        _ROT_CACHE.update({"at": now, "data": data})
+        return data
+    except Exception as e:
+        # 在线构建失败 → output 缓存兜底（无论多旧）
+        cached = _read_output("rotation.json")
+        if cached and cached.get("dates"):
+            cached["stale"] = True
+            return cached
+        raise HTTPException(500, f"跷跷板面板数据构建失败: {e}")
 
 
 # ---------- 前端静态页（放最后，保证 /api 路由优先） ----------

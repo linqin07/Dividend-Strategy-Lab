@@ -43,8 +43,12 @@ def main():
     p_sig.add_argument("--force", action="store_true", help="强制刷新行情缓存")
     p_sig.set_defaults(func=_cmd_signal)
 
-    p_yd = sub.add_parser("yields", help="汇总当前基金的实时股息率（中证官网估值，动态TTM兜底）")
+    p_yd = sub.add_parser("yields", help="汇总当前基金的实时股息率（中证官网估值，动态TTM兜底），并缓存至 output/yields.json 供静态页面读取")
     p_yd.set_defaults(func=_cmd_yields)
+
+    p_rt = sub.add_parser("rotation", help="生成创业板指/中证红利跷跷板面板数据 output/rotation.json")
+    p_rt.add_argument("--force", action="store_true", help="强制刷新行情缓存（走在线源）")
+    p_rt.set_defaults(func=_cmd_rotation)
 
     args = ap.parse_args()
     args.func(args)
@@ -134,10 +138,11 @@ def _cmd_signal(args):
 
 
 def _cmd_yields(args):
-    """汇总当前基金的实时股息率（中证官网估值，动态TTM兜底）"""
+    """汇总当前基金的实时股息率（中证官网估值，动态TTM兜底），并落盘缓存"""
     from strategy_lab.datasource.dividend_yield import summarize_yields
-    s = summarize_yields()
-    print(f"实时股息率汇总（共 {s['total']} 只启用基金，{s['with_yield']} 只有数据）")
+    from strategy_lab.report import write_yields_json
+    s = write_yields_json(summarize_yields())
+    print(f"实时股息率汇总（共 {s['total']} 只启用基金，{s['with_yield']} 只有数据），已缓存至 output/yields.json")
     print(f"平均滚动股息率: {(s['avg_dy2'] or 0)*100:.2f}%  |  "
           f"最高: {s['max']['name'] if s['max'] else '-'} {(s['max']['dy'] if s['max'] else 0)*100:.2f}%  |  "
           f"最低: {s['min']['name'] if s['min'] else '-'} {(s['min']['dy'] if s['min'] else 0)*100:.2f}%")
@@ -149,6 +154,19 @@ def _cmd_yields(args):
         src = {"csindex": "中证官网", "dynamic": "动态TTM"}.get(r["source"], "--")
         print(f"{r['code']:<8}{r['name'][:16]:<18}{str(r['index_code'] or ''):<8}"
               f"{dy1:<10}{dy2:<14}{str(r['date'] or ''):<12}{src}")
+
+
+def _cmd_rotation(args):
+    """生成创业板指/中证红利跷跷板面板数据并落盘 output/rotation.json"""
+    from strategy_lab.rotation import write_rotation_json
+    print("构建 创业板指(399006)/中证红利(000922) 跷跷板面板数据"
+          f"{' [强制刷新行情]' if args.force else ''}...")
+    data = write_rotation_json(force=args.force)
+    prov = data.get("providers") or {}
+    print(f"区间 {data['dates'][0]} ~ {data['dates'][-1]}，共 {len(data['dates'])} 个交易日"
+          f"{' ⚠含缓存兜底数据' if data.get('stale') else ''}")
+    print(f"数据源: 创业板={prov.get('growth')} 红利={prov.get('dividend')}")
+    print("已写入 output/rotation.json")
 
 
 _ENV_TEMPLATE = """# SMTP 邮件推送配置（QQ邮箱示例：smtp.qq.com / 465 / 授权码）

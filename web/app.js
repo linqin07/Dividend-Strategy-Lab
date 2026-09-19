@@ -776,6 +776,18 @@ function yieldRowHTML(r) {
   </tr>`;
 }
 
+/** 渲染股息率汇总数据（接口模式与静态缓存共用同一套展示逻辑） */
+function paintYieldSummary(s, metaText, allowRefresh) {
+  $("yieldMeta").textContent = metaText;
+  $("btnYieldRefresh").hidden = !allowRefresh;
+  $("yieldStats").innerHTML = yieldStatsHTML(s);
+  document.querySelector("#yieldTable tbody").innerHTML = (s.rows || []).map(yieldRowHTML).join("") ||
+    `<tr><td colspan="8" style="color:#93a1b3">暂无基金配置</td></tr>`;
+  $("yieldNote").innerHTML = s.avg_dy2 != null && s.avg_dy2 > (s.rf_annual || 0.02)
+    ? `<span class="yield-note-hi">📌 当前红利组合平均滚动股息率 ${(s.avg_dy2 * 100).toFixed(2)}%，高于无风险利率 ${((s.rf_annual || 0.02) * 100).toFixed(0)}%，分红现金回报具备吸引力；股息率会随价格波动，请结合回测指标综合判断。</span>`
+    : "当前红利组合股息率低于无风险利率，分红吸引力一般。";
+}
+
 async function renderYieldPanel(force) {
   const table = document.querySelector("#yieldTable tbody");
   table.innerHTML = `<tr><td colspan="8" style="color:#93a1b3">加载实时股息率中...</td></tr>`;
@@ -784,17 +796,24 @@ async function renderYieldPanel(force) {
   try {
     if (S.serveMode) {
       const s = await fetchJSON(apiUrl("/api/yields" + (force ? "?force=1" : "")));
-      $("yieldMeta").textContent =
-        `数据源：中证指数官网估值（股息率1=静态 / 股息率2=近12个月滚动TTM），无官网数据时按分红动态计算 · 计算于 ${s.computed_at || "--"}`;
-      $("btnYieldRefresh").hidden = false;
-      $("yieldStats").innerHTML = yieldStatsHTML(s);
-      table.innerHTML = (s.rows || []).map(yieldRowHTML).join("") ||
-        `<tr><td colspan="8" style="color:#93a1b3">暂无基金配置</td></tr>`;
-      $("yieldNote").innerHTML = s.avg_dy2 != null && s.avg_dy2 > (s.rf_annual || 0.02)
-        ? `<span class="yield-note-hi">📌 当前红利组合平均滚动股息率 ${(s.avg_dy2 * 100).toFixed(2)}%，高于无风险利率 ${((s.rf_annual || 0.02) * 100).toFixed(0)}%，分红现金回报具备吸引力；股息率会随价格波动，请结合回测指标综合判断。</span>`
-        : "当前红利组合股息率低于无风险利率，分红吸引力一般。";
+      paintYieldSummary(s,
+        `数据源：中证指数官网估值（股息率1=静态 / 股息率2=近12个月滚动TTM），无官网数据时按分红动态计算 · 计算于 ${s.computed_at || "--"}`,
+        true);
     } else {
-      // 静态模式：从本地回测 JSON 计算各标的 TTM 股息率（降级展示）
+      // 静态模式：优先读 CI 部署时预生成的缓存 output/yields.json（官网实时估值快照），
+      // 缓存缺失时才降级为本地回测分红数据计算 TTM
+      let cached = null;
+      try {
+        const s = await fetchJSON("output/yields.json");
+        if (s && Array.isArray(s.rows) && s.rows.length) cached = s;
+      } catch (e) { /* 无缓存文件，走降级展示 */ }
+      if (cached) {
+        paintYieldSummary(cached,
+          `静态缓存数据：中证指数官网估值快照（股息率1=静态 / 股息率2=近12个月滚动TTM）· 更新于 ${cached.computed_at || "--"}`,
+          false);
+        return;
+      }
+      // 降级：从本地回测 JSON 计算各标的 TTM 股息率
       const rows = [];
       for (const c of S.codes) {
         try {
