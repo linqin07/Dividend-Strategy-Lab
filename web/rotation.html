@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>红利补仓 / 减仓参考 · 创业板-红利跷跷板面板</title>
+<title>风格轮动 & 纳指波动监控看板 · 创业板-红利-纳指</title>
 <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
 <script>if (typeof echarts === "undefined") { document.write('<script src="https://unpkg.com/echarts@5.5.0/dist/echarts.min.js"><\/script>'); }</script>
 <style>
@@ -45,77 +45,62 @@
     background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
     padding: 16px 18px; margin-bottom: 16px; box-shadow: var(--shadow);
   }
-  .card-title { font-size: 14px; font-weight: 600; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+  .card-title { font-size: 14px; font-weight: 600; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
   .card-title .bar { width: 3px; height: 14px; border-radius: 2px; background: var(--blue); }
   .card-title .hint { font-size: 12px; color: var(--txt3); font-weight: 400; }
 
-  /* 决策仪表盘 */
-  .dash { display: grid; grid-template-columns: 380px 1fr; gap: 18px; }
-  .pos-big { font-size: 64px; font-weight: 800; font-family: Consolas, monospace; line-height: 1.05; }
-  .pos-label { font-size: 13px; color: var(--txt2); margin-top: 2px; }
-  .state-line { display: flex; align-items: center; gap: 10px; margin: 12px 0 6px; flex-wrap: wrap; }
-  .dot { width: 14px; height: 14px; border-radius: 50%; box-shadow: 0 0 12px currentColor; }
-  .dot.full { background: var(--green); color: var(--green); }
-  .dot.trim { background: var(--yellow); color: var(--yellow); }
-  .dot.attack { background: var(--red); color: var(--red); }
-  .state-txt { font-size: 17px; font-weight: 700; }
-  .state-txt.full { color: var(--green); } .state-txt.trim { color: var(--yellow); } .state-txt.attack { color: var(--red); }
-  .advice {
-    margin-top: 10px; padding: 10px 12px; border-radius: 8px; font-size: 13px;
-    background: var(--panel2); border: 1px solid var(--border); color: var(--txt);
-  }
+  /* 组合建议 */
+  .alloc-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .alloc-card { border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; background: var(--panel2); }
+  .alloc-card .big { font-size: 44px; font-weight: 800; font-family: Consolas, monospace; line-height: 1.1; }
+  .alloc-card .nm { font-size: 13px; color: var(--txt2); margin-top: 2px; }
+  .alloc-card .etf { font-size: 11px; color: var(--txt3); margin-top: 2px; }
+  .alloc-card.div .big { color: var(--green); }
+  .alloc-card.gem .big { color: var(--red); }
+  .alloc-card.ndx .big { color: var(--blue); }
+  .sig-line { margin-top: 14px; font-size: 13.5px; padding: 10px 12px; border-radius: 8px; background: var(--panel2); border: 1px solid var(--border); }
+  .sig-line b { font-family: Consolas, monospace; }
+  .sig-hit { color: var(--red); font-weight: 700; }
+  .sig-no { color: var(--txt3); }
+  .advice { margin-top: 10px; padding: 10px 12px; border-radius: 8px; font-size: 13px; background: #eef4ff; border: 1px solid #c9d9fb; }
   .meta { font-size: 12.5px; color: var(--txt2); margin-top: 8px; }
   .meta b { color: var(--txt); font-family: Consolas, monospace; }
-  .reason-list { margin-top: 10px; font-size: 12.5px; color: var(--txt2); }
-  .reason-list li { margin: 4px 0 4px 18px; }
-  .reason-list li b { color: var(--txt); font-family: Consolas, monospace; }
-  .reason-list li.ok { color: var(--green); }
-  .reason-list li.no { color: var(--txt3); }
 
-  /* 指标卡 */
-  .metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; align-content: start; }
-  .metrics.six { grid-template-columns: repeat(6, minmax(0, 1fr)); margin-bottom: 14px; }
+  /* 三条件信号卡（仿看板样式） */
+  .conds { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+  .cond { border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; background: var(--panel); position: relative; overflow: hidden; }
+  .cond .ck { font-size: 12px; color: var(--txt2); }
+  .cond .ck .fm { font-family: Consolas, monospace; color: var(--txt); }
+  .cond .big { font-size: 42px; font-weight: 800; font-family: Consolas, monospace; line-height: 1.15; margin-top: 4px; }
+  .cond .unit { font-size: 13px; color: var(--txt3); font-weight: 400; }
+  .cond .state { font-size: 12.5px; margin-top: 8px; }
+  .cond .desc { font-size: 11.5px; color: var(--txt3); margin-top: 8px; line-height: 1.55; }
+  /* 区间带（条件①） */
+  .band { position: relative; height: 14px; border-radius: 7px; margin-top: 12px; border: 1px solid var(--border); overflow: visible;
+          background: linear-gradient(90deg, rgba(217,56,56,.30) 0%, rgba(217,56,56,.30) 35%, rgba(147,161,179,.18) 35%, rgba(147,161,179,.18) 60%, rgba(12,150,104,.30) 60%, rgba(12,150,104,.30) 100%); }
+  .band .pin { position: absolute; top: -5px; width: 4px; height: 24px; border-radius: 2px; background: var(--txt); transform: translateX(-50%); transition: left .3s; }
+  .band-tags { display: flex; font-size: 10.5px; color: var(--txt3); margin-top: 4px; }
+  .band-tags span:nth-child(1) { width: 35%; } .band-tags span:nth-child(2) { width: 25%; text-align: center; } .band-tags span:nth-child(3) { flex: 1; text-align: right; }
+  /* 进度条（条件②③） */
+  .meter { position: relative; height: 12px; border-radius: 6px; margin-top: 12px; background: #e8edf4; border: 1px solid var(--border); overflow: hidden; }
+  .meter .fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 6px 0 0 6px; }
+  .meter .mark { position: absolute; top: -4px; bottom: -4px; width: 2px; background: var(--txt); }
+  .meter-tags { display: flex; justify-content: space-between; font-size: 10.5px; color: var(--txt3); margin-top: 4px; font-family: Consolas, monospace; }
+  .prem-nums { display: flex; gap: 14px; margin-top: 6px; }
+  .prem-nums .pn { flex: 1; }
+  .prem-nums .pn .code { font-size: 11px; color: var(--txt3); font-family: Consolas, monospace; }
+  .prem-nums .pn .val { font-size: 24px; font-weight: 800; font-family: Consolas, monospace; }
+
+  .chart { width: 100%; height: 320px; }
+  .chart.tall { height: 380px; }
+  .chart.short { height: 260px; }
+
+  .metrics { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 12px; margin-bottom: 14px; }
   .m-card { min-width: 0; background: var(--panel2); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; }
   .m-card .k { font-size: 12px; color: var(--txt2); }
   .m-card .v { font-size: 20px; font-weight: 700; font-family: Consolas, monospace; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .m-card .s { font-size: 11px; color: var(--txt3); margin-top: 2px; }
   .v.up { color: var(--red); } .v.down { color: var(--green); } .v.plain { color: var(--txt); }
-
-  /* 仓位刻度条 */
-  .pos-track {
-    margin-top: 14px; height: 12px; border-radius: 6px; position: relative;
-    background: linear-gradient(90deg, rgba(217,56,56,.25) 0%, rgba(194,120,3,.25) 50%, rgba(12,150,104,.30) 100%);
-    border: 1px solid var(--border);
-  }
-  .pos-fill { position: absolute; top: -3px; bottom: -3px; width: 8px; border-radius: 3px; background: var(--txt); transform: translateX(-50%); transition: left .3s; }
-  .pos-tags { display: flex; justify-content: space-between; font-size: 11px; color: var(--txt3); margin-top: 4px; font-family: Consolas, monospace; }
-
-  /* 规则卡 */
-  .rules { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
-  .rule {
-    border: 1px solid var(--border); border-radius: 10px; padding: 13px 14px;
-    background: var(--panel2); position: relative; overflow: hidden;
-  }
-  .rule::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; }
-  .rule.r100::before { background: var(--green); }
-  .rule.r70::before { background: var(--yellow); }
-  .rule.r50::before { background: var(--red); }
-  .rule.rtp::before { background: var(--blue); }
-  .rule h3 { font-size: 13.5px; margin-bottom: 6px; }
-  .rule.r100 h3 { color: var(--green); } .rule.r70 h3 { color: var(--yellow); }
-  .rule.r50 h3 { color: var(--red); } .rule.rtp h3 { color: var(--blue); }
-  .rule p { font-size: 12px; color: var(--txt2); }
-  .rule .cond {
-    font-family: Consolas, monospace; font-size: 11.5px; color: var(--txt);
-    background: #fff; border: 1px solid var(--border); border-radius: 6px;
-    padding: 3px 7px; margin: 5px 0; display: inline-block;
-  }
-  .basis { margin-top: 12px; font-size: 12px; color: var(--txt3); border-top: 1px dashed var(--border); padding-top: 10px; }
-  .basis b { color: var(--txt2); }
-
-  .chart { width: 100%; height: 340px; }
-  .chart.tall { height: 380px; }
-  .chart.short { height: 240px; }
 
   .tbl-wrap { overflow-x: auto; }
   table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
@@ -125,23 +110,26 @@
   tr:hover td { background: #f2f5f9; }
   th:first-child, td:first-child { text-align: left; }
   th:last-child, td:last-child { text-align: left; }
-  .tag { padding: 2px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; }
-  .tag.full { background: rgba(12,150,104,.12); color: var(--green); }
-  .tag.trim { background: rgba(194,120,3,.12); color: var(--yellow); }
-  .tag.attack { background: rgba(217,56,56,.12); color: var(--red); }
+  .tag { padding: 2px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+  .tag.zone-div { background: rgba(12,150,104,.12); color: var(--green); }
+  .tag.zone-neu { background: rgba(147,161,179,.16); color: var(--txt2); }
+  .tag.zone-gem { background: rgba(217,56,56,.12); color: var(--red); }
+  .tag.vxn-on { background: rgba(47,111,237,.12); color: var(--blue); }
+  .tag.vxn-off { background: rgba(147,161,179,.16); color: var(--txt3); }
 
+  .basis { margin-top: 12px; font-size: 12px; color: var(--txt3); border-top: 1px dashed var(--border); padding-top: 10px; line-height: 1.7; }
+  .basis b { color: var(--txt2); }
   .footnote { font-size: 12px; color: var(--txt3); margin-top: 6px; }
 
   @media (max-width: 980px) {
-    .dash { grid-template-columns: 1fr; }
-    .metrics.six { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-    .rules { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .conds { grid-template-columns: 1fr; }
+    .metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   }
   @media (max-width: 560px) {
-    .metrics, .metrics.six { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .rules { grid-template-columns: 1fr; }
+    .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .alloc-row { grid-template-columns: 1fr; }
+    .alloc-card .big { font-size: 34px; }
     .brand h1 { font-size: 16px; }
-    .pos-big { font-size: 46px; }
   }
 </style>
 </head>
@@ -152,100 +140,100 @@
     <div class="brand">
       <a class="back-link" href="index.html">← 返回红利策略实验室</a>
       <div>
-        <h1>红利补仓 / 减仓参考 <span style="color:var(--blue)">· 创业板-红利跷跷板</span></h1>
-        <div class="sub">底仓永远是红利：创业板趋势起来→减红利追成长；分化到极致→止盈回补红利。全部指标由同一份日频数据实时计算</div>
+        <h1>风格轮动 <span style="color:var(--blue)">&amp; 纳指波动监控看板</span></h1>
+        <div class="sub">条件① 创红比风格区间 · 条件② VXN 恐慌买点 · 条件③ 纳指ETF溢价风控 —— 三资产组合，不押单一风格</div>
       </div>
     </div>
     <span class="badge-src" id="srcBadge">数据源：加载中…</span>
   </header>
 
-  <!-- 一、决策仪表盘 -->
+  <!-- 一、今日组合建议 -->
   <div class="card">
-    <div class="card-title"><span class="bar"></span>今日操作建议 <span class="hint" id="asofHint"></span></div>
-    <div class="dash">
-      <div>
-        <div class="pos-big" id="curPos">--</div>
-        <div class="pos-label">建议红利仓位（其余部分参考创业板 / 现金）</div>
-        <div class="state-line">
-          <span class="dot" id="stateDot"></span>
-          <span class="state-txt" id="stateTxt">--</span>
-        </div>
-        <div class="pos-track"><div class="pos-fill" id="posFill"></div></div>
-        <div class="pos-tags"><span>50% 强趋势减仓</span><span>70% 趋势转多</span><span>100% 满仓红利</span></div>
-        <div class="advice" id="advice">--</div>
-        <div class="meta" id="sigMeta">--</div>
-      </div>
-      <div>
-        <div class="metrics" id="dashMetrics"></div>
-        <ul class="reason-list" id="reasonList"></ul>
-      </div>
-    </div>
+    <div class="card-title"><span class="bar"></span>今日组合建议 <span class="hint" id="asofHint"></span></div>
+    <div class="alloc-row" id="allocRow"></div>
+    <div class="sig-line" id="sigLine">--</div>
+    <div class="advice" id="advice">--</div>
+    <div class="meta" id="sigMeta">--</div>
   </div>
 
-  <!-- 二、策略规则 -->
+  <!-- 二、三条件信号 -->
   <div class="card">
-    <div class="card-title"><span class="bar"></span>四档仓位规则（趋势跟随 + 极端反转保护，参数硬编码）</div>
-    <div class="rules">
-      <div class="rule r100">
-        <h3>🛡 满仓红利 100%</h3>
-        <span class="cond">默认态：创业板未形成多头结构</span>
-        <p>创业板向来熊多，默认持有红利吃股息+低波动。失守多头结构 2 日即回补，回补后冷却 10 日防反复。分位 ≤10% 标注「黄金补仓区」，可用新增资金加码。</p>
+    <div class="card-title"><span class="bar"></span>三条件信号监控 <span class="hint">口径：创红比 0.35 / 0.60 · VXN 30 触发线 · 溢价率 5% / 10% 预警</span></div>
+    <div class="conds">
+      <div class="cond">
+        <div class="ck">条件① x = 创业板指(<span class="fm">399006</span>) / 中证红利(<span class="fm">000922</span>)</div>
+        <div class="big" id="c1Big">--</div>
+        <div class="band"><div class="pin" id="c1Pin" style="left:50%"></div></div>
+        <div class="band-tags"><span>x&lt;0.35 → 观察创业板</span><span>0.35–0.60 中性</span><span>x&gt;0.60 → 观察中证红利</span></div>
+        <div class="state" id="c1State">--</div>
+        <div class="desc" id="c1Desc"></div>
       </div>
-      <div class="rule r70">
-        <h3>⚖ 减仓至 70%</h3>
-        <span class="cond">收盘&gt;MA60 且 MA20&gt;MA60 且 动量≥5% · 连续3日确认</span>
-        <p>创业板趋势转多确认 → 减 30% 红利追成长。3 日确认过滤假反弹，搭上跷跷板上行段。</p>
+      <div class="cond">
+        <div class="ck">条件② 纳斯达克波动率 VXN（Cboe NASDAQ-100 Volatility）</div>
+        <div class="big" id="c2Big">--</div>
+        <div class="meter"><div class="fill" id="c2Fill" style="background:linear-gradient(90deg,#2f6fed,#7fa4f5);width:0"></div><div class="mark" style="left:75%" title="30 触发线"></div></div>
+        <div class="meter-tags"><span>0</span><span>20</span><span style="color:var(--red)">30 触发线</span><span>40</span></div>
+        <div class="state" id="c2State">--</div>
+        <div class="desc" id="c2Desc"></div>
       </div>
-      <div class="rule r50">
-        <h3>⚔ 减仓至 50%</h3>
-        <span class="cond">减仓途中 60日动量≥10%（回落至&lt;5% 退回70%）</span>
-        <p>强趋势主升浪 → 红利降至半仓。动量进出采用 10%/5% 滞回带，避免在边界反复横跳。</p>
-      </div>
-      <div class="rule rtp">
-        <h3>💰 止盈回补 100%</h3>
-        <span class="cond">60日收益差分位 ≥ 90%（回落至50%中枢才解除）</span>
-        <p>成长/红利分化到极致 → 均值回归风险大，把创业板盈利落袋回补红利；分位未回落至 50% 中枢前锁定不再减仓。</p>
+      <div class="cond">
+        <div class="ck">条件③ 纳指100 ETF 溢价率（场内价 / 单位净值 - 1）</div>
+        <div class="prem-nums" id="c3Nums"></div>
+        <div class="meter"><div class="fill" id="c3Fill" style="background:linear-gradient(90deg,#c27803,#d93838);width:0"></div><div class="mark" id="c3Mark" style="left:25%"></div></div>
+        <div class="meter-tags"><span>0</span><span style="color:var(--yellow)">5% 预警</span><span style="color:var(--red)">10% 严重</span><span>20%</span></div>
+        <div class="state" id="c3State">--</div>
+        <div class="desc" id="c3Desc"></div>
       </div>
     </div>
     <div class="basis">
-      策略依据：核心信号 = <b>60 日收益差（创业板60日涨幅 − 红利60日涨幅）的近 3 年（750 交易日）滚动分位数</b>。
-      Wind 实测（2014–2025）：当两者 3 个月收益差触及历史 90%/10% 分位时切换至欠涨指数、回落至 50% 中枢再等权，
-      策略胜率 78.9%、年化超额 4.44%——本面板的「止盈回补 + 50% 中枢解锁」即严格照搬该口径；
-      趋势过滤采用经典双均线（MA20/MA60）+ 60 日动量分级（5% 入场 / 10% 强趋势 / 5% 滞回退出），
-      配合 3 日入场确认与 10 日冷却期，专门对付创业板熊多长熊、假突破多的特性；
-      分位 ≤10% 为「黄金补仓区」：红利已极端跑赢、成长极度超卖，适合持有待涨并用新增资金（工资/分红）加码红利。
+      <b>策略依据：</b>条件①「创红比」= 创业板指 ÷ 中证红利，是成长相对价值的<b>风格温度计</b>：
+      x&gt;0.60 成长泡沫化、抱团拥挤，进入红利观察区（增配红利）；x&lt;0.35 成长极度低估，历史上见底后创业板中长期大幅跑赢红利；
+      0.35–0.60 无极致单边风格，均衡配置。条件②：VXN 长期中枢约 20，&gt;30 代表美股恐慌（历史上 2018Q4、2020-03、2022 均为纳指长线黄金坑），
+      触发「大笔买入纳斯达克」；条件③：QDII 溢价率&gt;5% 高溢价观察、&gt;10% 严重溢价，此时买入纳指 ETF 面临「净值+溢价」双杀风险，暂缓买入、等溢价回落再执行。
     </div>
   </div>
 
-  <!-- 三、收益差与分位 -->
+  <!-- 三、创红比走势 -->
   <div class="card">
-    <div class="card-title"><span class="bar"></span>跷跷板分化度：60 日收益差 &amp; 滚动分位 <span class="hint">分位≥90% 触发止盈回补 · ≤10% 为黄金补仓区</span></div>
-    <div id="chartDiff" class="chart tall"></div>
+    <div class="card-title"><span class="bar"></span>创红比 x 走势（近五年） <span class="hint">x = 创业板指 ÷ 中证红利 · 0.60 上边界 / 0.35 下边界</span></div>
+    <div id="chartRatio" class="chart tall"></div>
   </div>
 
-  <!-- 四、建议仓位走势 -->
+  <!-- 四、VXN 走势 -->
   <div class="card">
-    <div class="card-title"><span class="bar"></span>建议红利仓位走势（近五年）</div>
-    <div id="chartPos" class="chart short"></div>
+    <div class="card-title"><span class="bar"></span>VXN 纳斯达克波动率走势 <span class="hint">Cboe 官方数据 · &gt;30 触发大笔买入信号</span></div>
+    <div id="chartVxn" class="chart"></div>
   </div>
 
-  <!-- 五、回测 -->
+  <!-- 五、溢价率走势 -->
   <div class="card">
-    <div class="card-title"><span class="bar"></span>历史有效性回测（近五年 · 减仓部分配置创业板 · 调仓成本 0.1%）</div>
-    <div class="metrics six" id="btMetrics"></div>
+    <div class="card-title"><span class="bar"></span>纳指100 ETF 溢价率走势 <span class="hint">513100 / 513300 · 5% 预警线 / 10% 严重线</span></div>
+    <div id="chartPrem" class="chart"></div>
+  </div>
+
+  <!-- 六、组合配置走势 -->
+  <div class="card">
+    <div class="card-title"><span class="bar"></span>组合配置走势（近五年 · 红利 / 创业板 / 纳指）</div>
+    <div id="chartAlloc" class="chart short"></div>
+  </div>
+
+  <!-- 七、回测 -->
+  <div class="card">
+    <div class="card-title"><span class="bar"></span>历史有效性回测（近五年 · 三资产按信号配置 · 调仓成本 0.1%）</div>
+    <div class="metrics" id="btMetrics"></div>
     <div id="chartNav" class="chart tall"></div>
   </div>
 
-  <!-- 六、调仓明细 -->
+  <!-- 八、信号明细 -->
   <div class="card">
-    <div class="card-title"><span class="bar"></span>调仓信号明细（共 <span id="turnCount">0</span> 次仓位变化）</div>
+    <div class="card-title"><span class="bar"></span>信号切换明细（共 <span id="sigCount">0</span> 次）</div>
     <div class="tbl-wrap">
       <table>
-        <thead><tr><th>日期</th><th>红利仓位</th><th>变化</th><th>当时分位</th><th>触发原因</th></tr></thead>
+        <thead><tr><th>日期</th><th>条件</th><th>变化</th><th>当日配置</th><th>触发原因</th></tr></thead>
         <tbody id="tblBody"></tbody>
       </table>
     </div>
-    <div class="footnote">说明：本面板为红利底仓的补仓/减仓参考工具，不构成投资建议。信号按日频计算、收盘后生效；分位数窗口不足 250 个样本的回测早期不参与分位判定（仅按趋势规则）。</div>
+    <div class="footnote">说明：本看板为风格轮动观察与提醒工具，只做规则映射与信号提醒，不含任何买卖建议。信号按日频计算、收盘后生效；纳指资产回测采用 513100 场内价（含溢价波动）。</div>
   </div>
 
 </div>
@@ -254,11 +242,11 @@
 "use strict";
 /* ================= 工具 ================= */
 const $ = (id) => document.getElementById(id);
-function fmtPct(x, d) { return (x == null || !isFinite(x)) ? "--" : (x * 100).toFixed(d == null ? 2 : d) + "%"; }
+function fmtPct(x, d) { return (x == null || !isFinite(x)) ? "--" : (x >= 0 ? "+" : "") + (x * 100).toFixed(d == null ? 2 : d) + "%"; }
 function fmtNum(x, d) { return (x == null || !isFinite(x)) ? "--" : x.toFixed(d == null ? 2 : d); }
 
 /* 固定种子伪随机：模拟兜底数据可复现 */
-let _seed = 20260830;
+let _seed = 20260925;
 function srand() {
   _seed |= 0; _seed = (_seed + 0x6D2B79F5) | 0;
   let t = Math.imul(_seed ^ (_seed >>> 15), 1 | _seed);
@@ -273,7 +261,6 @@ function randn() {
 }
 
 /* ================= 一、数据层 ================= */
-/* 模拟兜底序列：创业板先强后熊再复苏、红利稳步，保证四档信号均可演示 */
 function genDates(from, to) {
   const out = [], d = new Date(from), end = new Date(to);
   while (d <= end) {
@@ -283,25 +270,28 @@ function genDates(from, to) {
   }
   return out;
 }
+/* 模拟兜底序列：创红比在 0.3~0.75 摆动（可触发三区间），VXN 平稳+两次恐慌脉冲，溢价 0~15% 摆动 */
 function genSeries() {
-  _seed = 20260830;
-  const dates = genDates("2021-09-22", "2026-09-18");
+  _seed = 20260925;
+  const dates = genDates("2021-09-27", "2026-09-24");
   const n = dates.length;
-  const growth = new Array(n), dividend = new Array(n);
-  growth[0] = dividend[0] = 1000;
-  const SEG = [[0, 0.35, 0.30], [0.35, 0.62, -0.75], [0.62, 0.85, 0.55], [0.85, 1.0, -0.35]];
-  const annG = (i) => {
-    const f = i / n;
-    for (const [a, b, r] of SEG) if (f >= a && f < b) return Math.pow(1 + r, 1 / 252) - 1;
-    return Math.pow(1.05, 1 / 252) - 1;
-  };
-  const annD = Math.pow(1.07, 1 / 252) - 1;
-  const volG = 0.16 / Math.sqrt(252), volD = 0.05 / Math.sqrt(252);
+  const growth = new Array(n), dividend = new Array(n), vxn = new Array(n), p1 = new Array(n), p3 = new Array(n);
+  growth[0] = 3200; dividend[0] = 5000;
+  let gA = Math.pow(1.10, 1 / 252) - 1, dA = Math.pow(1.06, 1 / 252) - 1;
+  const volG = 0.17 / Math.sqrt(252), volD = 0.05 / Math.sqrt(252);
+  const wave = (i, a, b, c) => a + b * Math.sin(2 * Math.PI * i / 504) + c * Math.sin(2 * Math.PI * i / 1512 + 1.2);
   for (let i = 1; i < n; i++) {
-    growth[i] = growth[i - 1] * (1 + annG(i) + volG * randn());
-    dividend[i] = dividend[i - 1] * (1 + annD + volD * randn());
+    const drift = Math.max(-0.0025, Math.min(0.0025, (wave(i, 0.5, 0.42, 0.10) - growth[i - 1] / dividend[i - 1]) * 0.0016));
+    growth[i] = growth[i - 1] * (1 + gA + drift + volG * randn());
+    dividend[i] = dividend[i - 1] * (1 + dA + volD * randn());
+    const spike = (i > 610 && i < 655) ? 14 : ((i > 300 && i < 330) ? 9 : 0);
+    vxn[i] = Math.max(12, wave(i, 20, 3.5, 1.6) + spike + randn() * 1.2);
+    p1[i] = Math.max(-0.02, wave(i, 0.05, 0.055, 0.03) + randn() * 0.008);
+    p3[i] = Math.max(-0.02, wave(i + 400, 0.04, 0.04, 0.025) + randn() * 0.008);
   }
-  return { dates, growth, dividend, asof: "内置模拟", providers: null, stale: false, _mock: true };
+  vxn[0] = vxn[1] || 20; p1[0] = p1[1] || 0.02; p3[0] = p3[1] || 0.01;
+  return { dates, growth, dividend, vxn, premium: { "513100": p1, "513300": p3 },
+           asof: "内置模拟", providers: null, stale: false, _mock: true };
 }
 
 /* 三级回退：FastAPI 接口 → 静态 output/rotation.json → 模拟序列 */
@@ -313,362 +303,400 @@ async function loadData() {
       if (!r.ok) continue;
       const j = await r.json();
       if (j && Array.isArray(j.dates) && Array.isArray(j.growth) && Array.isArray(j.dividend)
-          && j.dates.length > 250) {
+          && Array.isArray(j.vxn) && j.dates.length > 250) {
+        if (!j.premium) j.premium = {};
         const badge = $("srcBadge");
-        const prov = j.providers ? `创业板=${j.providers.growth} 红利=${j.providers.dividend}` : "";
-        if (ci === 0) {
-          badge.textContent = `真实数据 · ${j.asof || ""} ${prov}`;
-        } else {
-          badge.textContent = `真实数据(静态缓存) · ${j.asof || ""} ${prov}`;
-        }
+        const prov = j.providers ? Object.values(j.providers).filter(Boolean).slice(0, 2).join(" ") : "";
+        badge.textContent = (ci === 0 ? "真实数据 · " : "真实数据(静态缓存) · ") + (j.asof || "") + (prov ? " " + prov : "");
         badge.classList.add(j.stale ? "stale" : "live");
         if (j.stale) badge.textContent = "⚠ " + badge.textContent + "（含缓存兜底）";
         return j;
       }
     } catch (e) { /* 尝试下一来源 */ }
   }
-  const badge = $("srcBadge");
-  badge.textContent = "数据源：内置模拟序列（未检测到后端/缓存数据）";
+  $("srcBadge").textContent = "数据源：内置模拟序列（未检测到后端/缓存数据）";
   return genSeries();
 }
 
-/* ================= 二、指标计算 ================= */
-const W_MOM = 60;        // 动量/收益差窗口（约 3 个月）
-const W_MA = 60;         // 牛熊分界均线
-const W_MAF = 20;        // 快均线
-const W_PCT = 750;       // 分位数滚动窗口（约 3 年）
-const MIN_PCT = 250;     // 分位最少样本
-const STRONG_MOM = 0.10; // 强趋势动量阈值
-const PCT_HI = 0.90, PCT_LO = 0.10;
-const COST = 0.001;      // 调仓成本（单次）
+/* ================= 二、策略计算（与 strategy_lab/rotation.py 完全同口径） ================= */
+const X_HI = 0.60, X_LO = 0.35;       // 条件① 区间边界
+const VXN_TRIGGER = 30.0;              // 条件② 触发线
+const PREMIUM_WARN = 0.05, PREMIUM_HIGH = 0.10;   // 条件③ 预警/严重
+const COST = 0.001;                    // 调仓成本
+const ZONE_ALLOC = {
+  dividend: { div: 0.60, gem: 0.20, ndx: 0.20 },
+  neutral:  { div: 0.40, gem: 0.40, ndx: 0.20 },
+  growth:   { div: 0.20, gem: 0.60, ndx: 0.20 },
+};
+const VXN_SHIFT = { div: -0.10, gem: -0.10, ndx: 0.20 };
+const ZONE_NAME = { dividend: "观察中证红利", neutral: "中性", growth: "观察创业板" };
 
-function sma(a, i, w) { if (i < w - 1) return null; let s = 0; for (let k = i - w + 1; k <= i; k++) s += a[k]; return s / w; }
-function ret(a, i, w) { return i >= w ? a[i] / a[i - w] - 1 : null; }
-
-function buildIndicators(g, d) {
-  const n = g.length;
-  const diff = new Array(n).fill(null), pct = new Array(n).fill(null);
-  const bull = new Array(n).fill(false), strong = new Array(n).fill(false);
-  const ma60 = new Array(n).fill(null), ma20 = new Array(n).fill(null);
-  const momG = new Array(n).fill(null), momD = new Array(n).fill(null);
-  for (let i = 0; i < n; i++) {
-    const rg = ret(g, i, W_MOM), rd = ret(d, i, W_MOM);
-    momG[i] = rg; momD[i] = rd;
-    if (rg != null && rd != null) {
-      diff[i] = rg - rd;
-      const lo = Math.max(0, i - W_PCT + 1);
-      const win = [];
-      for (let k = lo; k <= i; k++) if (diff[k] != null) win.push(diff[k]);
-      if (win.length >= MIN_PCT) {
-        let cnt = 0;
-        for (const v of win) if (v <= diff[i]) cnt++;
-        pct[i] = cnt / win.length;
-      }
-    }
-    ma60[i] = sma(g, i, W_MA); ma20[i] = sma(g, i, W_MAF);
-    bull[i] = ma60[i] != null && ma20[i] != null && g[i] > ma60[i] && ma20[i] > ma60[i];
-    strong[i] = bull[i] && rg != null && rg >= STRONG_MOM;
-  }
-  return { diff, pct, bull, strong, ma60, ma20, momG, momD };
-}
-
-/* ================= 三、四档仓位状态机 =================
- * 满仓红利100%（默认/止盈锁定/黄金补仓区）→ 趋势确认70% → 强趋势50%
- * 防抖设计：入场连续3日确认、回补后10日冷却、强趋势10%/5%滞回带、
- * 止盈状态锁定至分位回落至50%中枢（Wind 实测口径） */
-const ENTRY_MOM = 0.05;      // 减仓入场动量门槛（60日）
-const STRONG_IN = 0.10;      // 强趋势进入（→50%）
-const STRONG_OUT = 0.05;     // 强趋势退出（←70%）
-const CONFIRM_DAYS = 3;      // 入场连续确认天数
-const COOLDOWN_DAYS = 10;    // 回补后冷却天数
-const TP_ON = 0.90, TP_OFF = 0.50;
-
-function runStrategy(ind) {
-  const n = ind.diff.length;
-  const w = new Array(n).fill(1.0);
-  const switches = [];
-  let tp = false, strong = false, wcur = 1.0, confirm = 0, cooldown = 0, bear = 0;
-  for (let i = 0; i < n; i++) {
-    const p = ind.pct[i], mom = ind.momG[i];
-    if (p != null && p >= TP_ON) tp = true;
-    else if (p != null && p <= TP_OFF) tp = false;
-    if (!ind.bull[i]) strong = false;
-    else if (mom != null && mom >= STRONG_IN) strong = true;
-    else if (mom != null && mom < STRONG_OUT) strong = false;
-    const entry = ind.bull[i] && mom != null && mom >= ENTRY_MOM;
-    confirm = entry ? confirm + 1 : 0;
-    bear = ind.bull[i] ? 0 : bear + 1;
-    if (cooldown > 0) cooldown--;
-    const prev = wcur;
-    let reason = "";
-    if (tp) {
-      wcur = 1.0;
-      if (prev < 1) reason = `收益差分位 ${fmtPct(p, 1)} ≥ 90%，分化极致 → 止盈回补红利至满仓（分位回落至50%中枢前锁定不再减仓）`;
-    } else if (wcur === 1.0) {
-      if (confirm >= CONFIRM_DAYS && cooldown === 0) {
-        wcur = 0.7;
-        reason = `趋势转多确认：收盘>MA60 + MA20>MA60 + 60日动量 ${fmtPct(mom, 1)} ≥5%，连续${CONFIRM_DAYS}日 → 红利减至70%`;
-      }
-    } else {
-      if (bear >= 2) {
-        wcur = 1.0; cooldown = COOLDOWN_DAYS;
-        reason = `创业板连续2日失守多头结构 → 回补红利至满仓（冷却${COOLDOWN_DAYS}日防假突破反复）`;
-      } else if (strong && wcur !== 0.5) {
-        wcur = 0.5;
-        reason = `强趋势：60日动量 ${fmtPct(mom, 1)} ≥10% → 红利减至50%`;
-      } else if (!strong && wcur === 0.5) {
-        wcur = 0.7;
-        reason = "60日动量回落至 5% 以下 → 红利回升至70%";
-      }
-    }
-    if (wcur !== prev && reason) switches.push({ idx: i, from: prev, to: wcur, pct: p, reason });
-    w[i] = wcur;
-  }
-  return { w, switches };
-}
-
-/* 组合净值：红利仓位 w，剩余 (1-w) 配创业板；仓位变化日计成本 */
-function computeNav(g, d, w) {
-  const n = g.length;
-  const nav = new Array(n).fill(1), navD = new Array(n).fill(1), navB = new Array(n).fill(1), navG = new Array(n).fill(1);
-  for (let i = 1; i < n; i++) {
-    const rg = g[i] / g[i - 1] - 1, rd = d[i] / d[i - 1] - 1;
-    let r = w[i] * rd + (1 - w[i]) * rg;
-    if (w[i] !== w[i - 1]) r -= COST;
-    nav[i] = nav[i - 1] * (1 + r);
-    navD[i] = navD[i - 1] * (1 + rd);
-    navG[i] = navG[i - 1] * (1 + rg);
-    navB[i] = navB[i - 1] * (1 + 0.5 * rd + 0.5 * rg);
-  }
-  return { nav, navD, navB, navG };
-}
-
-function perfStats(nav) {
-  const n = nav.length, years = (n - 1) / 252;
-  const ann = Math.pow(nav[n - 1] / nav[0], 1 / years) - 1;
-  let peak = -1e18, mdd = 0;
-  for (const v of nav) { peak = Math.max(peak, v); mdd = Math.max(mdd, (peak - v) / peak); }
-  const rets = [];
-  for (let i = 1; i < n; i++) rets.push(nav[i] / nav[i - 1] - 1);
-  const mean = rets.reduce((a, b) => a + b, 0) / rets.length;
-  const sd = Math.sqrt(rets.reduce((a, b) => a + (b - mean) ** 2, 0) / rets.length) * Math.sqrt(252);
-  return { ann, mdd, sharpe: sd > 0 ? (ann - 0.02) / sd : 0 };
+function zoneOf(x) { return x == null ? null : (x > X_HI ? "dividend" : (x < X_LO ? "growth" : "neutral")); }
+function allocOf(zone, vxnHit) {
+  const a = { ...(ZONE_ALLOC[zone || "neutral"]) };
+  if (vxnHit) for (const k in VXN_SHIFT) a[k] = Math.round((a[k] + VXN_SHIFT[k]) * 100) / 100;
+  return a;
 }
 
 function computeAll(DATA) {
-  const { dates, growth: g, dividend: d } = DATA;
+  const dates = DATA.dates, g = DATA.growth, d = DATA.dividend;
+  const vxn = DATA.vxn || [];
+  const prem = DATA.premium || {};
+  const p1 = prem["513100"] || [], p3 = prem["513300"] || [];
   const n = dates.length;
-  const ind = buildIndicators(g, d);
-  const { w, switches } = runStrategy(ind);
-  switches.forEach((s) => { s.date = dates[s.idx]; });
-  const { nav, navD, navB, navG } = computeNav(g, d, w);
-  const st = perfStats(nav), stD = perfStats(navD);
-  // 减仓段胜率：每个 w<1 区间相对满仓红利的超额 > 0 记胜
-  const segs = [];
-  let start = 0;
-  for (const s of switches) { segs.push([start, s.idx]); start = s.idx; }
-  segs.push([start, n - 1]);
-  const trimSegs = segs.filter(([a, b]) => w[Math.min(a + 1, n - 1)] < 1 && b - a > 5);
-  const wins = trimSegs.filter(([a, b]) => (nav[b] / nav[a]) >= (navD[b] / navD[a])).length;
-  const winRate = trimSegs.length ? wins / trimSegs.length : null;
-  const lastSw = switches.length ? switches[switches.length - 1] : null;
-  const holdDays = n - 1 - (lastSw ? lastSw.idx : 0);
+
+  const ratio = dates.map((_, i) => (g[i] && d[i]) ? g[i] / d[i] : null);
+  const zone = ratio.map(zoneOf);
+  const vxnHit = vxn.map((v) => v != null && v > VXN_TRIGGER);
+  const wDiv = [], wGem = [], wNdx = [];
+  for (let i = 0; i < n; i++) {
+    const a = allocOf(zone[i], vxnHit[i]);
+    wDiv.push(a.div); wGem.push(a.gem); wNdx.push(a.ndx);
+  }
+
+  /* 信号切换明细 */
+  const switches = [];
+  const zoneReason = {
+    dividend: "上穿 0.60 上边界 → 观察中证红利（成长高估区）",
+    growth: "下破 0.35 下边界 → 观察创业板（成长极度低估区）",
+    neutral: "回落至 0.35~0.60 中性区",
+  };
+  for (let i = 1; i < n; i++) {
+    if (zone[i] && zone[i] !== zone[i - 1]) {
+      switches.push({ date: dates[i], type: "zone", from: ZONE_NAME[zone[i - 1] || "neutral"], to: ZONE_NAME[zone[i]],
+        alloc: allocOf(zone[i], vxnHit[i]),
+        reason: `创红比 x=${ratio[i].toFixed(4)} ${zoneReason[zone[i]]}` });
+    }
+    if (vxnHit[i] !== vxnHit[i - 1] && vxn[i] != null) {
+      switches.push({ date: dates[i], type: "vxn", from: vxnHit[i - 1] ? "已触发" : "未触发", to: vxnHit[i] ? "已触发" : "未触发",
+        alloc: allocOf(zone[i], vxnHit[i]),
+        reason: vxnHit[i] ? `VXN=${vxn[i].toFixed(2)} 上穿 30 → 大笔买入纳斯达克（美股恐慌 = 长线黄金坑）`
+                          : `VXN=${vxn[i].toFixed(2)} 回落至 30 以下 → 触发解除` });
+    }
+  }
+
+  /* 回测：红利/创业板指数 + 513100 场内价，按信号配置，换手计成本 */
+  const ndx = DATA.ndx_prices || [];
+  const nav = new Array(n).fill(1), navD = new Array(n).fill(1), navB = new Array(n).fill(1), navN = new Array(n).fill(1);
+  for (let i = 1; i < n; i++) {
+    const rg = (g[i] && g[i - 1]) ? g[i] / g[i - 1] - 1 : 0;
+    const rd = (d[i] && d[i - 1]) ? d[i] / d[i - 1] - 1 : 0;
+    const rn = (ndx[i] && ndx[i - 1]) ? ndx[i] / ndx[i - 1] - 1 : 0;
+    const turn = Math.abs(wDiv[i] - wDiv[i - 1]) + Math.abs(wGem[i] - wGem[i - 1]) + Math.abs(wNdx[i] - wNdx[i - 1]);
+    nav[i] = nav[i - 1] * (1 + wDiv[i] * rd + wGem[i] * rg + wNdx[i] * rn - COST * turn / 2);
+    navD[i] = navD[i - 1] * (1 + rd);
+    navB[i] = navB[i - 1] * (1 + 0.5 * rd + 0.5 * rg);
+    navN[i] = navN[i - 1] * (1 + rn);
+  }
+  function stats(a) {
+    const years = (n - 1) / 252;
+    const ann = Math.pow(a[n - 1], 1 / years) - 1;
+    let peak = -1e18, mdd = 0;
+    for (const v of a) { peak = Math.max(peak, v); mdd = Math.max(mdd, 1 - v / peak); }
+    return { ann, mdd };
+  }
+  const st = stats(nav), stD = stats(navD);
+
   const i = n - 1;
   return {
-    dates, g, d, ind, w, switches, nav, navD, navB, navG,
-    ann: st.ann, mdd: st.mdd, sharpe: st.sharpe,
-    annD: stD.ann, excess: st.ann - stD.ann,
-    turns: switches.length, winRate,
-    curW: w[i], curPct: ind.pct[i], curDiff: ind.diff[i],
-    curBull: ind.bull[i], curStrong: ind.strong[i],
-    ma60: ind.ma60[i], ma20: ind.ma20[i], momG: ind.momG[i], momD: ind.momD[i],
-    lastSig: lastSw ? lastSw.date : "回测起点", holdDays,
-    ratio: g[i] / d[i], curReason: lastSw ? lastSw.reason : "回测起点默认满仓红利",
+    dates, g, d, ratio, zone, vxn, vxnHit, p1, p3, wDiv, wGem, wNdx,
+    switches, nav, navD, navB, navN,
+    ann: st.ann, mdd: st.mdd, annD: stD.ann, mddD: stD.mdd,
+    excess: st.ann - stD.ann, turns: switches.length,
+    cur: {
+      date: dates[i], growth: g[i], dividend: d[i], ratio: ratio[i],
+      zone: zone[i], zoneName: ZONE_NAME[zone[i] || "neutral"],
+      vxn: vxn[i], vxnHit: vxnHit[i], vxnAsof: DATA.vxn_asof,
+      prem1: p1[i] != null ? p1[i] : (p1[p1.length - 1] ?? null),
+      prem3: p3[i] != null ? p3[i] : (p3[p3.length - 1] ?? null),
+      alloc: allocOf(zone[i], vxnHit[i]),
+      lastSwitch: switches[switches.length - 1] || null,
+    },
   };
 }
 
-/* ================= 四、渲染 ================= */
+/* ================= 三、渲染 ================= */
 let charts = {};
 function ensureChart(id) { if (!charts[id]) charts[id] = echarts.init($(id)); return charts[id]; }
 const UP = "#d93838", DOWN = "#0c9668", HOLD = "#c27803", BLUE = "#2f6fed", GRAY = "#93a1b3";
 
-function renderDash(R, DATA) {
-  const w = R.curW;
-  $("curPos").textContent = Math.round(w * 100) + "%";
-  const state = w >= 1 ? "full" : (w >= 0.7 ? "trim" : "attack");
-  $("stateDot").className = "dot " + state;
-  const stateTxt = w >= 1
-    ? (R.curPct != null && R.curPct >= PCT_HI ? "💰 止盈回补 · 满仓红利"
-      : (R.curPct != null && R.curPct <= PCT_LO ? "🛡 满仓红利 · 黄金补仓区" : "🛡 满仓红利 · 持有"))
-    : (w >= 0.7 ? "⚖ 趋势转多 · 红利减至70%" : "⚔ 强趋势 · 红利减至50%");
-  $("stateTxt").textContent = stateTxt;
-  $("stateTxt").className = "state-txt " + state;
-  $("posFill").style.left = ((w - 0.5) / 0.5 * 100) + "%";
-
-  const freed = Math.round((1 - w) * 100);
-  $("advice").textContent = w >= 1
-    ? (R.curPct != null && R.curPct >= PCT_HI
-      ? "操作参考：成长/红利分化已到极致，若前期减过仓，现在把创业板盈利落袋、回补红利至满仓。"
-      : (R.curPct != null && R.curPct <= PCT_LO
-        ? "操作参考：创业板深度熊市、红利极端跑赢。持仓不动吃股息；有新增资金（工资/分红到账）可在此区域加码红利，等待风格再平衡。"
-        : "操作参考：创业板趋势未确认（熊多惯例），红利满仓持有，不追成长反弹。"))
-    : `操作参考：创业板趋势${w <= 0.5 ? "强劲" : "转多"}确认，可将 ${freed}% 红利仓位换入创业板（或宽基成长）参与跷跷板上行段；分位触及 90% 立即回补。`;
-  $("sigMeta").innerHTML = `上次仓位变化：<b>${R.lastSig}</b>　·　当前仓位已持续 <b>${R.holdDays}</b> 个交易日`;
-  $("asofHint").textContent = DATA.asof && DATA.asof !== "内置模拟" ? `数据截至 ${R.dates[R.dates.length - 1]} · 生成于 ${DATA.asof}` : `数据截至 ${R.dates[R.dates.length - 1]}（模拟序列）`;
-
-  const dm = [
-    { k: "60日收益差(创-红)", v: fmtPct(R.curDiff), c: R.curDiff >= 0 ? "up" : "down", s: "创业板60日涨幅 − 红利60日涨幅" },
-    { k: "收益差分位(近3年)", v: R.curPct != null ? fmtPct(R.curPct, 1) : "--", c: R.curPct != null && R.curPct >= 0.9 ? "up" : (R.curPct != null && R.curPct <= 0.1 ? "down" : "plain"), s: "≥90% 止盈回补 / ≤10% 黄金补仓区" },
-    { k: "创业板 vs MA60", v: R.ma60 ? ((R.g[R.g.length - 1] > R.ma60 ? "+" : "") + fmtPct(R.g[R.g.length - 1] / R.ma60 - 1, 1)) : "--", c: R.g[R.g.length - 1] > R.ma60 ? "up" : "down", s: `MA60=${R.ma60 ? R.ma60.toFixed(0) : "--"} 牛熊分界` },
-    { k: "创业板60日动量", v: fmtPct(R.momG), c: R.momG >= 0 ? "up" : "down", s: "≥10% 记强趋势" },
-    { k: "红利60日动量", v: fmtPct(R.momD), c: R.momD >= 0 ? "up" : "down", s: "底仓自身走势" },
-    { k: "创业板/红利 比值", v: fmtNum(R.ratio, 3), c: "plain", s: "历史摆动区间约 0.3~0.7" },
+function renderAlloc(R, DATA) {
+  const c = R.cur, a = c.alloc;
+  const cards = [
+    { cls: "div", nm: "中证红利（底仓）", etf: "515080 / 512890", v: a.div },
+    { cls: "gem", nm: "创业板（成长弹性）", etf: "159915", v: a.gem },
+    { cls: "ndx", nm: "纳指100（海外分散）", etf: "513100 / 513300", v: a.ndx },
   ];
-  $("dashMetrics").innerHTML = dm.map((m) =>
-    `<div class="m-card"><div class="k">${m.k}</div><div class="v ${m.c}">${m.v}</div><div class="s">${m.s}</div></div>`).join("");
+  $("allocRow").innerHTML = cards.map((x) =>
+    `<div class="alloc-card ${x.cls}">
+       <div class="big">${Math.round(x.v * 100)}%</div>
+       <div class="nm">${x.nm}</div>
+       <div class="etf">参考标的：${x.etf}</div>
+     </div>`).join("");
 
-  const chk = (ok, txt) => `<li class="${ok ? "ok" : "no"}">${ok ? "✔" : "✘"} ${txt}</li>`;
-  $("reasonList").innerHTML = [
-    chk(R.g[R.g.length - 1] > R.ma60, `创业板收盘站上 MA60（<b>${R.g[R.g.length - 1].toFixed(0)}</b> vs <b>${R.ma60 ? R.ma60.toFixed(0) : "--"}</b>）`),
-    chk(R.ma20 > R.ma60, `MA20 > MA60 均线多头（<b>${R.ma20 ? R.ma20.toFixed(0) : "--"}</b> vs <b>${R.ma60 ? R.ma60.toFixed(0) : "--"}</b>）`),
-    chk(R.momG != null && R.momG >= ENTRY_MOM, `入场动量 ≥ 5%（当前 <b>${fmtPct(R.momG, 1)}</b>，需连续3日确认）`),
-    chk(R.momG != null && R.momG >= STRONG_IN, `强趋势动量 ≥ 10% → 触发 50% 档（当前 <b>${fmtPct(R.momG, 1)}</b>）`),
-    chk(R.curPct != null && R.curPct >= TP_ON, `收益差分位 ≥ 90% 止盈回补（当前 <b>${R.curPct != null ? fmtPct(R.curPct, 1) : "--"}</b>，回落至50%中枢解除）`),
-    chk(R.curPct != null && R.curPct <= PCT_LO, `收益差分位 ≤ 10% 黄金补仓区（当前 <b>${R.curPct != null ? fmtPct(R.curPct, 1) : "--"}</b>）`),
-  ].join("");
+  const zoneTag = `<span class="sig-hit">条件① 「${c.zoneName}」（x=${c.ratio ? c.ratio.toFixed(4) : "--"}）</span>`;
+  const vxnTag = c.vxnHit
+    ? `<span class="sig-hit">条件② VXN=${fmtNum(c.vxn)} &gt; 30，大笔买入纳斯达克信号生效</span>`
+    : `<span class="sig-no">条件② VXN=${fmtNum(c.vxn)} &lt; 30，未触发</span>`;
+  const worst = Math.max(c.prem1 || 0, c.prem3 || 0);
+  const premTag = worst >= PREMIUM_HIGH
+    ? `<span class="sig-hit">条件③ 纳指ETF严重溢价（513100 ${fmtPct(c.prem1, 2)} / 513300 ${fmtPct(c.prem3, 2)}），暂缓买入</span>`
+    : (worst >= PREMIUM_WARN
+      ? `<span class="sig-hit">条件③ 纳指ETF高溢价观察（513100 ${fmtPct(c.prem1, 2)} / 513300 ${fmtPct(c.prem3, 2)}），暂缓买入</span>`
+      : `<span class="sig-no">条件③ 溢价率正常（513100 ${fmtPct(c.prem1, 2)} / 513300 ${fmtPct(c.prem3, 2)}）</span>`);
+  $("sigLine").innerHTML = `当前生效信号：${zoneTag}；${vxnTag}；${premTag}。`;
+
+  let advice;
+  if (c.zone === "dividend") {
+    advice = "操作参考：创红比站上 0.60，成长风格拥挤、红利性价比占优。按 60/20/20 持有红利底仓；" +
+      (worst >= PREMIUM_WARN ? `纳指 ETF 溢价偏高（最高 ${fmtPct(worst, 1)}），20% 纳指仓位暂缓买入、等溢价回落再执行。` : "纳指仓位可正常配置。");
+  } else if (c.zone === "growth") {
+    advice = "操作参考：创红比跌破 0.35，成长极度低估。历史规律是见底后创业板中长期大幅跑赢，按 20/60/20 向创业板倾斜；" +
+      (c.vxnHit ? "叠加 VXN>30 恐慌信号，纳指加至 40% 一并布局。" : "若美股同步恐慌（VXN>30），纳指可加至 40%。");
+  } else {
+    advice = "操作参考：创红比处于中性区，风格交替轮动、无极致单边。按 40/40/20 均衡配置，等待区间边界信号再调仓。";
+  }
+  if (c.vxnHit) advice += " VXN>30：美股恐慌对应纳指长线黄金坑，触发「大笔买入纳斯达克」。";
+  $("advice").textContent = advice;
+
+  const last = c.lastSwitch;
+  $("sigMeta").innerHTML = last
+    ? `最近一次信号变化：<b>${last.date}</b> · ${last.reason}`
+    : "近五年无区间边界穿越";
+  $("asofHint").textContent = DATA._mock ? `数据截至 ${c.date}（模拟序列）`
+    : `数据截至 ${c.date} 收盘 · 生成于 ${DATA.asof || ""}`;
 }
 
-function renderDiffChart(R) {
-  const c = ensureChart("chartDiff");
-  const trimPts = [], addPts = [];
-  for (const s of R.switches) {
-    const p = { value: [s.date, R.ind.diff[s.idx]], name: s.to < 1 ? "减红利" : "回补红利" };
-    (s.to < 1 ? trimPts : addPts).push(p);
-  }
+function renderConds(R) {
+  const c = R.cur;
+  /* 条件① */
+  $("c1Big").innerHTML = `${c.ratio ? c.ratio.toFixed(4) : "--"} <span class="unit">(x)</span>`;
+  const pos = Math.max(0, Math.min(100, ((c.ratio - 0.25) / (0.80 - 0.25)) * 100));
+  $("c1Pin").style.left = pos + "%";
+  const zc = c.zone === "dividend" ? "var(--green)" : (c.zone === "growth" ? "var(--red)" : "var(--txt2)");
+  $("c1State").innerHTML = `<span style="color:${zc};font-weight:700">● ${c.zoneName}` +
+    (c.zone === "neutral" ? `（0.35 ≤ x ≤ 0.60）` : `（x ${c.zone === "dividend" ? "&gt;" : "&lt;"} ${c.zone === "dividend" ? "0.60" : "0.35"}，已触发）`) + `</span>`;
+  $("c1Desc").textContent = `x = ${c.growth?.toFixed(2) || "--"} ÷ ${c.dividend?.toFixed(2) || "--"}，两指数均为价格指数口径。` +
+    (c.zone === "dividend" ? "若 x 回落至 0.60 以下则信号解除；继续下破 0.35 才触发「观察创业板」。"
+      : c.zone === "growth" ? "若 x 回升至 0.35 以上则信号解除；上破 0.60 转为「观察中证红利」。"
+      : "x 上破 0.60 触发「观察中证红利」；下破 0.35 触发「观察创业板」。");
+
+  /* 条件② */
+  $("c2Big").innerHTML = `${fmtNum(c.vxn)} <span class="unit">(VXN)</span>`;
+  $("c2Fill").style.width = Math.min(100, (c.vxn / 40) * 100) + "%";
+  $("c2Fill").style.background = c.vxnHit ? "linear-gradient(90deg,#d93838,#e8746f)" : "linear-gradient(90deg,#2f6fed,#7fa4f5)";
+  $("c2State").innerHTML = c.vxnHit
+    ? `<span style="color:var(--red);font-weight:700">● 已触发大笔买入（VXN &gt; 30）</span>`
+    : `<span class="sig-no">○ 未触发大笔买入（VXN &lt; 30）</span>`;
+  $("c2Desc").textContent = c.vxnAsof
+    ? `最新完整收盘 ${fmtNum(c.vxn)}（Cboe ${c.vxnAsof} 收），距 30 触发线约 ${fmtNum(30 - c.vxn, 1)} 点。VXN 长期中枢约 20，>30 历史上均为纳指长线买点（2018Q4 / 2020-03 / 2022）。`
+    : `最新完整收盘 ${fmtNum(c.vxn)}，距 30 触发线约 ${fmtNum(30 - c.vxn, 1)} 点。`;
+
+  /* 条件③ */
+  const pn = (code, v, nav) =>
+    `<div class="pn"><div class="code">${code}${nav ? " · 净值 " + nav : ""}</div>
+       <div class="val" style="color:${v >= PREMIUM_HIGH ? "var(--red)" : (v >= PREMIUM_WARN ? "var(--yellow)" : "var(--green)")}">${fmtPct(v, 2)}</div></div>`;
+  const navLatest = DATA_NAV_LATEST || {};
+  $("c3Nums").innerHTML =
+    pn("513100", c.prem1, navLatest["513100"] ? navLatest["513100"].date : "") +
+    pn("513300", c.prem3, navLatest["513300"] ? navLatest["513300"].date : "");
+  const mx = Math.max(c.prem1 || 0, c.prem3 || 0);
+  $("c3Fill").style.width = Math.min(100, (mx / 0.20) * 100) + "%";
+  $("c3State").innerHTML = mx >= PREMIUM_HIGH
+    ? `<span style="color:var(--red);font-weight:700">● 严重溢价：暂缓买入纳指ETF，等溢价回落</span>`
+    : (mx >= PREMIUM_WARN
+      ? `<span style="color:var(--yellow);font-weight:700">● 高溢价观察：暂缓买入纳指ETF</span>`
+      : `<span style="color:var(--green);font-weight:700">○ 溢价正常：可按配置买入</span>`);
+  $("c3Desc").textContent = "溢价率 = 场内价 ÷ 最近一期单位净值 - 1（QDII 净值 T+1 公布）。溢价过高时买入，需承受「净值回落 + 溢价收敛」双杀。";
+}
+
+function renderRatioChart(R) {
+  const c = ensureChart("chartRatio");
+  const switchPts = R.switches.filter((s) => s.type === "zone").map((s) => {
+    const i = R.dates.indexOf(s.date);
+    return R.ratio[i] != null ? { value: [s.date, R.ratio[i]], name: s.to } : null;
+  }).filter(Boolean);
   c.setOption({
     animation: false, backgroundColor: "transparent",
     tooltip: { trigger: "axis" },
-    legend: { top: 0, textStyle: { color: GRAY }, data: ["60日收益差", "分位数(右轴)", "减红利", "回补红利"] },
-    grid: { left: 56, right: 52, top: 34, bottom: 44 },
+    legend: { top: 0, textStyle: { color: GRAY }, data: ["创红比 x", "边界穿越"] },
+    grid: { left: 56, right: 20, top: 34, bottom: 44 },
     xAxis: { type: "category", data: R.dates, axisLabel: { color: GRAY }, axisLine: { lineStyle: { color: "#c6d2e2" } } },
-    yAxis: [
-      { scale: true, axisLabel: { color: GRAY, formatter: (v) => (v * 100).toFixed(0) + "%" }, splitLine: { lineStyle: { color: "#eef2f7" } } },
-      { scale: false, min: 0, max: 1, axisLabel: { color: GRAY, formatter: (v) => (v * 100).toFixed(0) + "%" }, splitLine: { show: false } },
-    ],
+    yAxis: { scale: true, axisLabel: { color: GRAY }, splitLine: { lineStyle: { color: "#eef2f7" } } },
     dataZoom: [
       { type: "inside", xAxisIndex: 0, start: 0, end: 100 },
       { type: "slider", xAxisIndex: 0, bottom: 4, height: 16, borderColor: "#c6d2e2" },
     ],
     series: [
       {
-        name: "60日收益差", type: "line", data: R.ind.diff, showSymbol: false,
-        lineStyle: { color: BLUE, width: 1.6 },
-        areaStyle: { color: "rgba(47,111,237,.08)" },
-      },
-      {
-        name: "分位数(右轴)", type: "line", yAxisIndex: 1, data: R.ind.pct, showSymbol: false,
-        lineStyle: { color: HOLD, width: 1.3, type: "dashed" },
+        name: "创红比 x", type: "line", data: R.ratio, showSymbol: false,
+        lineStyle: { color: BLUE, width: 1.8 },
         markLine: {
           symbol: "none", silent: true,
           data: [
-            { yAxis: 0.9, lineStyle: { color: UP, type: "dashed" }, label: { formatter: "90% 止盈回补线", color: UP, position: "insideEndTop" } },
-            { yAxis: 0.1, lineStyle: { color: DOWN, type: "dashed" }, label: { formatter: "10% 黄金补仓线", color: DOWN, position: "insideEndBottom" } },
+            { yAxis: 0.60, lineStyle: { color: DOWN, type: "dashed" }, label: { formatter: "0.60 上边界 → 观察中证红利", color: DOWN, position: "insideEndTop" } },
+            { yAxis: 0.35, lineStyle: { color: UP, type: "dashed" }, label: { formatter: "0.35 下边界 → 观察创业板", color: UP, position: "insideEndBottom" } },
           ],
         },
       },
-      { name: "减红利", type: "scatter", data: trimPts, symbol: "triangle", symbolSize: 11, itemStyle: { color: UP }, z: 5 },
-      { name: "回补红利", type: "scatter", data: addPts, symbol: "path://M0,0L10,0L5,8Z", symbolSize: 11, itemStyle: { color: DOWN }, z: 5 },
+      { name: "边界穿越", type: "scatter", data: switchPts, symbol: "circle", symbolSize: 9, itemStyle: { color: HOLD }, z: 5 },
     ],
   }, true);
 }
 
-function renderPosChart(R) {
-  const c = ensureChart("chartPos");
+function renderVxnChart(R) {
+  const c = ensureChart("chartVxn");
+  const hits = R.dates.map((dt, i) => R.vxnHit[i] ? [dt, R.vxn[i]] : null).filter(Boolean);
   c.setOption({
     animation: false, backgroundColor: "transparent",
-    tooltip: { trigger: "axis", valueFormatter: (v) => (v * 100).toFixed(0) + "%" },
-    grid: { left: 56, right: 20, top: 16, bottom: 44 },
+    tooltip: { trigger: "axis" },
+    legend: { top: 0, textStyle: { color: GRAY }, data: ["VXN", ">30 触发区间"] },
+    grid: { left: 56, right: 20, top: 34, bottom: 44 },
     xAxis: { type: "category", data: R.dates, axisLabel: { color: GRAY }, axisLine: { lineStyle: { color: "#c6d2e2" } } },
-    yAxis: { min: 0.4, max: 1.05, axisLabel: { color: GRAY, formatter: (v) => (v * 100).toFixed(0) + "%" }, splitLine: { lineStyle: { color: "#eef2f7" } } },
+    yAxis: { scale: true, min: 8, axisLabel: { color: GRAY }, splitLine: { lineStyle: { color: "#eef2f7" } } },
     dataZoom: [
       { type: "inside", xAxisIndex: 0, start: 0, end: 100 },
       { type: "slider", xAxisIndex: 0, bottom: 4, height: 16, borderColor: "#c6d2e2" },
     ],
-    series: [{
-      name: "建议红利仓位", type: "line", data: R.w, step: "end", showSymbol: false,
-      lineStyle: { color: BLUE, width: 1.8 },
-      areaStyle: {
-        color: {
-          type: "linear", x: 0, y: 0, x2: 0, y2: 1,
-          colorStops: [{ offset: 0, color: "rgba(12,150,104,.25)" }, { offset: 1, color: "rgba(217,56,56,.15)" }],
+    series: [
+      {
+        name: "VXN", type: "line", data: R.vxn, showSymbol: false,
+        lineStyle: { color: BLUE, width: 1.5 },
+        areaStyle: { color: "rgba(47,111,237,.07)" },
+        markLine: {
+          symbol: "none", silent: true,
+          data: [{ yAxis: 30, lineStyle: { color: UP, type: "dashed" }, label: { formatter: "30 触发线 · 大笔买入纳斯达克", color: UP, position: "insideEndTop" } }],
         },
       },
-    }],
+      { name: ">30 触发区间", type: "scatter", data: hits, symbol: "circle", symbolSize: 3, itemStyle: { color: UP }, z: 5 },
+    ],
+  }, true);
+}
+
+function renderPremChart(R) {
+  const c = ensureChart("chartPrem");
+  const line = (name, data, color, extra) => ({
+    name, type: "line", data, showSymbol: false, lineStyle: { color, width: 1.5 }, ...(extra || {}),
+  });
+  const mk = {
+    markLine: {
+      symbol: "none", silent: true,
+      data: [
+        { yAxis: 0.05, lineStyle: { color: HOLD, type: "dashed" }, label: { formatter: "5% 预警", color: HOLD, position: "insideEndTop" } },
+        { yAxis: 0.10, lineStyle: { color: UP, type: "dashed" }, label: { formatter: "10% 严重", color: UP, position: "insideEndTop" } },
+      ],
+    },
+  };
+  c.setOption({
+    animation: false, backgroundColor: "transparent",
+    tooltip: { trigger: "axis", valueFormatter: (v) => (v * 100).toFixed(2) + "%" },
+    legend: { top: 0, textStyle: { color: GRAY }, data: ["513100 国泰纳指100", "513300 华夏纳指100"] },
+    grid: { left: 56, right: 20, top: 34, bottom: 44 },
+    xAxis: { type: "category", data: R.dates, axisLabel: { color: GRAY }, axisLine: { lineStyle: { color: "#c6d2e2" } } },
+    yAxis: { scale: true, axisLabel: { color: GRAY, formatter: (v) => (v * 100).toFixed(0) + "%" }, splitLine: { lineStyle: { color: "#eef2f7" } } },
+    dataZoom: [
+      { type: "inside", xAxisIndex: 0, start: 0, end: 100 },
+      { type: "slider", xAxisIndex: 0, bottom: 4, height: 16, borderColor: "#c6d2e2" },
+    ],
+    series: [
+      line("513100 国泰纳指100", R.p1, BLUE, mk),
+      line("513300 华夏纳指100", R.p3, HOLD),
+    ],
+  }, true);
+}
+
+function renderAllocChart(R) {
+  const c = ensureChart("chartAlloc");
+  c.setOption({
+    animation: false, backgroundColor: "transparent",
+    tooltip: { trigger: "axis", valueFormatter: (v) => (v * 100).toFixed(0) + "%" },
+    legend: { top: 0, textStyle: { color: GRAY }, data: ["红利", "创业板", "纳指"] },
+    grid: { left: 56, right: 20, top: 30, bottom: 44 },
+    xAxis: { type: "category", data: R.dates, axisLabel: { color: GRAY }, axisLine: { lineStyle: { color: "#c6d2e2" } } },
+    yAxis: { min: 0, max: 1, axisLabel: { color: GRAY, formatter: (v) => (v * 100).toFixed(0) + "%" }, splitLine: { lineStyle: { color: "#eef2f7" } } },
+    dataZoom: [
+      { type: "inside", xAxisIndex: 0, start: 0, end: 100 },
+      { type: "slider", xAxisIndex: 0, bottom: 4, height: 16, borderColor: "#c6d2e2" },
+    ],
+    series: [
+      { name: "红利", type: "line", stack: "alloc", data: R.wDiv, showSymbol: false, lineStyle: { width: 0 }, areaStyle: { color: "rgba(12,150,104,.45)" } },
+      { name: "创业板", type: "line", stack: "alloc", data: R.wGem, showSymbol: false, lineStyle: { width: 0 }, areaStyle: { color: "rgba(217,56,56,.40)" } },
+      { name: "纳指", type: "line", stack: "alloc", data: R.wNdx, showSymbol: false, lineStyle: { width: 0 }, areaStyle: { color: "rgba(47,111,237,.40)" } },
+    ],
   }, true);
 }
 
 function renderNavChart(R) {
   const c = ensureChart("chartNav");
-  const line = (name, data, color, wdt) => ({ name, type: "line", data, showSymbol: false, lineStyle: { color, width: wdt || 1.6 } });
+  const line = (name, data, color, wdt) => ({ name, type: "line", data, showSymbol: false, lineStyle: { color, width: wdt || 1.5 } });
   c.setOption({
     animation: false, backgroundColor: "transparent",
     tooltip: { trigger: "axis", valueFormatter: (v) => v.toFixed(3) },
-    legend: { top: 0, textStyle: { color: GRAY }, data: ["跷跷板策略", "满仓红利", "50/50等权", "满仓创业板"] },
+    legend: { top: 0, textStyle: { color: GRAY }, data: ["三资产信号组合", "满仓红利", "红利/创业板 50/50", "满仓纳指"] },
     grid: { left: 56, right: 20, top: 34, bottom: 44 },
     xAxis: { type: "category", data: R.dates, axisLabel: { color: GRAY }, axisLine: { lineStyle: { color: "#c6d2e2" } } },
-    yAxis: { scale: true, axisLabel: { color: GRAY, formatter: (v) => v.toFixed(1) }, splitLine: { lineStyle: { color: "#eef2f7" } } },
+    yAxis: { scale: true, axisLabel: { color: GRAY, formatter: (v) => v.toFixed(2) }, splitLine: { lineStyle: { color: "#eef2f7" } } },
     dataZoom: [
       { type: "inside", xAxisIndex: 0, start: 0, end: 100 },
       { type: "slider", xAxisIndex: 0, bottom: 4, height: 16, borderColor: "#c6d2e2" },
     ],
     series: [
-      line("跷跷板策略", R.nav, BLUE, 2.4),
+      line("三资产信号组合", R.nav, BLUE, 2.4),
       line("满仓红利", R.navD, DOWN, 1.4),
-      line("50/50等权", R.navB, HOLD, 1.2),
-      line("满仓创业板", R.navG, UP, 1.2),
+      line("红利/创业板 50/50", R.navB, HOLD, 1.2),
+      line("满仓纳指", R.navN, "#7c5cd6", 1.2),
     ],
   }, true);
 }
 
 function renderBtMetrics(R) {
   const cards = [
-    { k: "策略年化", v: fmtPct(R.ann), c: R.ann >= 0 ? "up" : "down", s: `满仓红利年化 ${fmtPct(R.annD)}` },
+    { k: "组合年化", v: fmtPct(R.ann), c: R.ann >= 0 ? "up" : "down", s: `满仓红利年化 ${fmtPct(R.annD)}` },
     { k: "超额收益(vs满仓红利)", v: fmtPct(R.excess), c: R.excess >= 0 ? "up" : "down", s: "年化口径" },
-    { k: "最大回撤", v: fmtPct(R.mdd), c: "down", s: "策略净值峰谷最大跌幅" },
-    { k: "夏普比率", v: fmtNum(R.sharpe, 2), c: "plain", s: "年化，无风险 2%" },
-    { k: "仓位变化次数", v: R.turns + " 次", c: "plain", s: "近五年信号切换" },
-    { k: "减仓段胜率", v: R.winRate != null ? fmtPct(R.winRate) : "--", c: R.winRate != null && R.winRate >= 0.5 ? "up" : "down", s: "减仓区间跑赢满仓红利占比" },
+    { k: "组合最大回撤", v: fmtPct(R.mdd), c: "down", s: `满仓红利回撤 ${fmtPct(R.mddD)}` },
+    { k: "当前红利仓位", v: Math.round(R.cur.alloc.div * 100) + "%", c: "plain", s: "其余为创业板+纳指" },
+    { k: "信号切换次数", v: R.turns + " 次", c: "plain", s: "近五年区间/触发切换" },
+    { k: "纳指加仓状态", v: R.cur.vxnHit ? "VXN>30 加仓" : "未加仓", c: R.cur.vxnHit ? "up" : "plain", s: "触发时纳指 40%" },
   ];
   $("btMetrics").innerHTML = cards.map((m) =>
     `<div class="m-card"><div class="k">${m.k}</div><div class="v ${m.c}">${m.v}</div><div class="s">${m.s}</div></div>`).join("");
 }
 
 function renderTable(R) {
-  $("turnCount").textContent = R.turns;
+  $("sigCount").textContent = R.turns;
+  const zoneTag = (z) => {
+    const cls = z === "观察中证红利" ? "zone-div" : (z === "观察创业板" ? "zone-gem" : "zone-neu");
+    return `<span class="tag ${cls}">${z}</span>`;
+  };
   const rows = R.switches.slice().reverse().map((s) => {
-    const tagCls = s.to >= 1 ? "full" : (s.to >= 0.7 ? "trim" : "attack");
-    const tag = `<span class="tag ${tagCls}">${Math.round(s.to * 100)}%</span>`;
-    const chg = `${Math.round(s.from * 100)}% → ${Math.round(s.to * 100)}%`;
+    const tag = s.type === "zone" ? zoneTag(s.to)
+      : `<span class="tag ${s.to === "已触发" ? "vxn-on" : "vxn-off"}">VXN ${s.to}</span>`;
+    const a = s.alloc;
+    const alloc = `${Math.round(a.div * 100)}/${Math.round(a.gem * 100)}/${Math.round(a.ndx * 100)}`;
     return `<tr>
       <td>${s.date}</td>
+      <td>${s.type === "zone" ? "条件①" : "条件②"}</td>
       <td>${tag}</td>
-      <td>${chg}</td>
-      <td>${s.pct != null ? fmtPct(s.pct, 1) : "--"}</td>
+      <td>${alloc}</td>
       <td style="font-family:inherit;color:var(--txt2);white-space:normal">${s.reason}</td>
     </tr>`;
   });
   $("tblBody").innerHTML = rows.length ? rows.join("") :
-    `<tr><td colspan="5" style="text-align:center;color:var(--txt3)">近五年未发生仓位变化</td></tr>`;
+    `<tr><td colspan="5" style="text-align:center;color:var(--txt3)">近五年未发生信号切换</td></tr>`;
 }
 
 /* ================= 主流程 ================= */
-let DATA = null;
+let DATA_NAV_LATEST = null;
 async function init() {
-  DATA = await loadData();
+  const DATA = await loadData();
+  DATA_NAV_LATEST = DATA.nav_latest || null;
   const R = computeAll(DATA);
-  renderDash(R, DATA);
-  renderDiffChart(R);
-  renderPosChart(R);
+  renderAlloc(R, DATA);
+  renderConds(R);
+  renderRatioChart(R);
+  renderVxnChart(R);
+  renderPremChart(R);
+  renderAllocChart(R);
   renderNavChart(R);
   renderBtMetrics(R);
   renderTable(R);

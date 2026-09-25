@@ -3,7 +3,7 @@
 
 供 run.py signal --notify 使用，产出三类内容：
   1. 每只标的的周线 RSI(14) 曲线图（PNG，内嵌 cid）
-  2. 创业板/红利跷跷板面板（收益差分位 + 建议红利仓位两张图）
+  2. 风格轮动 & 纳指波动监控面板（创红比区间 + 三资产配置两张图）
   3. 美化后的 HTML 邮件正文（表格布局 + 内联样式，兼容常见邮件客户端）
 
 图内文字统一用英文：CI（ubuntu）通常没有中文字体，避免乱码方块；
@@ -117,62 +117,57 @@ def render_rsi_chart(fund) -> bytes | None:
     return _png(fig)
 
 
-# ---------------------------------------------------------------- 跷跷板面板
+# ---------------------------------------------------------------- 风格轮动面板
 def render_rotation_diff_chart(data: dict, panel: dict) -> bytes | None:
-    """60日收益差 + 滚动分位（双轴，含 90%/10% 参考线）"""
+    """创红比 x = 创业板指/中证红利 走势（含 0.60/0.35 区间边界线）"""
     plt = _mpl()
     if plt is None:
         return None
-    dates, diff, pct = panel["dates"], panel["diff"], panel["pct"]
+    dates, ratio = panel["dates"], panel["ratio"]
     xs = list(range(len(dates)))
     fig, ax = plt.subplots(figsize=(7.2, 3.0))
-    ax.plot(xs, [None if v is None else v * 100 for v in diff],
-            color=BLUE, linewidth=1.4, label="60D return gap (GEM - Dividend)")
-    ax.axhline(0, color="#c6d2e2", linewidth=0.8)
-    ax.set_ylabel("Return gap (%)", color=BLUE, fontsize=9)
+    ax.plot(xs, ratio, color=BLUE, linewidth=1.4, label="GEM / Dividend ratio (x)")
+    ax.axhline(0.60, color=GREEN, linewidth=0.9, linestyle="--")
+    ax.axhline(0.35, color=RED, linewidth=0.9, linestyle="--")
+    ax.axhspan(0.35, 0.60, color="#93a1b3", alpha=0.10)
+    ax.text(len(xs) - 1, 0.605, "watch dividend", fontsize=8, color=GREEN, ha="right")
+    ax.text(len(xs) - 1, 0.355, "watch growth", fontsize=8, color=RED, ha="right")
+    ax.set_ylabel("Ratio (x)", color=BLUE, fontsize=9)
     ax.grid(True, color="#eef2f7", linewidth=0.8)
-    ax.set_title("ChiNext vs Dividend · 60D return gap & 3Y percentile",
+    ax.set_title("ChiNext / Dividend ratio & style zones (0.35 / 0.60)",
                  fontsize=11, color="#1f2733")
-
-    ax2 = ax.twinx()
-    ax2.plot(xs, [None if v is None else v * 100 for v in pct],
-             color=YELLOW, linewidth=1.2, linestyle="--", label="Percentile (3Y)")
-    ax2.axhline(90, color=RED, linewidth=0.9, linestyle=":")
-    ax2.axhline(10, color=GREEN, linewidth=0.9, linestyle=":")
-    ax2.set_ylim(0, 100)
-    ax2.set_ylabel("Percentile (%)", color=YELLOW, fontsize=9)
-
     step = max(1, len(xs) // 6)
     ax.set_xticks(xs[::step])
     ax.set_xticklabels([dates[i][2:] for i in xs[::step]], fontsize=8, color=GRAY)
-    h1, l1 = ax.get_legend_handles_labels()
-    h2, l2 = ax2.get_legend_handles_labels()
-    ax.legend(h1 + h2, l1 + l2, loc="upper left", fontsize=8, frameon=False, ncol=2)
+    ax.legend(loc="upper left", fontsize=8, frameon=False)
+    for sp in ("top", "right"):
+        ax.spines[sp].set_visible(False)
     return _png(fig)
 
 
 def render_rotation_pos_chart(panel: dict) -> bytes | None:
-    """建议红利仓位阶梯图"""
+    """三资产配置堆叠面积图（红利 / 创业板 / 纳指）"""
     plt = _mpl()
     if plt is None:
         return None
     dates, w = panel["dates"], panel["w"]
     xs = list(range(len(dates)))
-    fig, ax = plt.subplots(figsize=(7.2, 1.9))
-    ax.step(xs, [v * 100 for v in w], where="post", color=BLUE, linewidth=1.6)
-    ax.fill_between(xs, [v * 100 for v in w], 100, step="post",
-                    color=GREEN, alpha=0.10, label="Switched to ChiNext")
-    ax.fill_between(xs, 0, [v * 100 for v in w], step="post",
-                    color=GREEN, alpha=0.22, label="Dividend position")
-    ax.set_ylim(0, 105)
-    ax.set_ylabel("Dividend %", fontsize=9)
-    ax.grid(True, color="#eef2f7", linewidth=0.8)
-    ax.set_title("Suggested dividend position (100% / 70% / 50%)",
+    div = [v * 100 for v in w["div"]]
+    gem = [v * 100 for v in w["gem"]]
+    ndx = [v * 100 for v in w["ndx"]]
+    fig, ax = plt.subplots(figsize=(7.2, 2.2))
+    ax.stackplot(xs, div, gem, ndx,
+                 colors=[GREEN, RED, BLUE], alpha=0.65,
+                 labels=["Dividend", "ChiNext", "NDX100"])
+    ax.set_ylim(0, 100)
+    ax.set_ylabel("Allocation (%)", fontsize=9)
+    ax.grid(True, color="#eef2f7", linewidth=0.8, axis="y")
+    ax.set_title("Signal-driven allocation (dividend / growth / NASDAQ)",
                  fontsize=10, color="#1f2733")
     step = max(1, len(xs) // 6)
     ax.set_xticks(xs[::step])
     ax.set_xticklabels([dates[i][2:] for i in xs[::step]], fontsize=8, color=GRAY)
-    ax.legend(loc="lower left", fontsize=8, frameon=False, ncol=2)
+    ax.legend(loc="lower left", fontsize=8, frameon=False, ncol=3)
     return _png(fig)
 
 
@@ -181,34 +176,38 @@ def _fmt_pct(x, d=2) -> str:
     return "--" if x is None else f"{x * 100:.{d}f}%"
 
 
-def _pos_style(w: float) -> tuple:
-    """返回 (颜色, 徽章文案, 一句话建议)"""
-    if w >= 1:
-        return GREEN, "满仓红利", "创业板未形成多头结构，红利满仓持有吃股息"
-    if w >= 0.7:
-        return YELLOW, "减仓至 70%", "创业板趋势转多，减 30% 仓位参与成长弹性"
-    return RED, "减仓至 50%", "创业板强趋势主升，红利降至半仓"
+def _zone_style(zone: str | None) -> tuple:
+    """返回 (颜色, 区间徽章, 一句话建议)"""
+    if zone == "dividend":
+        return GREEN, "观察中证红利", "创红比站上 0.60，成长拥挤、红利性价比占优，红利底仓 60%"
+    if zone == "growth":
+        return RED, "观察创业板", "创红比跌破 0.35，成长极度低估，向创业板倾斜至 60%"
+    return "#555555", "中性", "0.35~0.60 中性区，均衡配置等待边界信号"
 
 
 def _rotation_block(panel: dict, images: dict) -> str:
     cur = panel["cur"]
-    w = cur["w"]
-    color, badge, advice = _pos_style(w)
+    alloc = cur["alloc"]
+    color, badge, advice = _zone_style(cur.get("zone"))
     last = cur.get("last_switch")
     last_txt = (f"{last['date']}：{last['reason']}" if last
-                else "回测起点以来未发生仓位变化")
-    golden = cur["pct"] is not None and cur["pct"] <= 0.10
-    tpzone = cur["pct"] is not None and cur["pct"] >= 0.90
+                else "近五年无区间边界穿越")
 
-    tip = ""
-    if golden:
-        tip = ('<div style="margin-top:8px;padding:8px 10px;background:#eafaf2;'
-               'border-left:3px solid #0c9668;color:#0c9668;font-size:12px;">'
-               '黄金补仓区：创业板深度熊市、红利极端跑赢，可用新增资金（工资/分红）加码红利。</div>')
-    elif tpzone:
-        tip = ('<div style="margin-top:8px;padding:8px 10px;background:#fdecec;'
-               'border-left:3px solid #d93838;color:#c62828;font-size:12px;">'
-               '分化极致区：成长/红利分化已到历史极端，若有减仓应先落袋回补红利。</div>')
+    vxn = cur.get("vxn")
+    vxn_hit = cur.get("vxn_hit")
+    vxn_color = RED if vxn_hit else "#93a1b3"
+    vxn_txt = f"已触发（VXN {vxn:.2f} &gt; 30，纳指加仓至 40%）" if vxn_hit \
+        else f"未触发（VXN {vxn:.2f} &lt; 30）"
+
+    prem = cur.get("premium") or {}
+    p1, p3 = prem.get("513100"), prem.get("513300")
+    worst = max(p1 or 0, p3 or 0)
+    prem_color = RED if worst >= 0.10 else (YELLOW if worst >= 0.05 else GREEN)
+    prem_txt = (f"513100 {p1 * 100:+.2f}% / 513300 {p3 * 100:+.2f}%"
+                if (p1 is not None and p3 is not None) else "--")
+    prem_state = ("严重溢价：暂缓买入纳指ETF" if worst >= 0.10
+                  else ("高溢价观察：暂缓买入纳指ETF" if worst >= 0.05
+                        else "溢价正常，可按配置买入"))
 
     def cell(k, v, c="#1f2733", s=""):
         return (f'<td style="padding:8px 6px;text-align:center;border:1px solid #e3e8ef;">'
@@ -217,25 +216,18 @@ def _rotation_block(panel: dict, images: dict) -> str:
                 f'font-family:Consolas,monospace;">{v}</div>'
                 f'<div style="font-size:10px;color:#93a1b3;">{s}</div></td>')
 
-    above = ("+" + f"{(cur['growth'] / cur['ma60'] - 1) * 100:.1f}%"
-             if cur["ma60"] and cur["growth"] > cur["ma60"]
-             else (f"{(cur['growth'] / cur['ma60'] - 1) * 100:.1f}%" if cur["ma60"] else "--"))
     metrics = (
-        cell("建议红利仓位", f"{w * 100:.0f}%", color, badge)
-        + cell("60日收益差", _fmt_pct(cur["diff"], 1),
-               RED if (cur["diff"] or 0) >= 0 else GREEN, "创业板−红利")
-        + cell("收益差分位", "--" if cur["pct"] is None else f"{cur['pct'] * 100:.0f}%",
-               BLUE, "近3年滚动")
-        + cell("创业板 vs MA60", above,
-               RED if (cur["ma60"] and cur["growth"] > cur["ma60"]) else GREEN,
-               "多头" if cur["bull"] else "空头")
-        + cell("创业板60日动量", _fmt_pct(cur["mom_g"], 1),
-               RED if (cur["mom_g"] or 0) >= 0 else GREEN, "≥10% 强趋势")
-        + cell("创业板/红利比值", f"{cur['ratio']:.3f}", "#1f2733", "区间约0.3~0.7")
+        cell("创红比 x", f"{cur['ratio']:.4f}" if cur.get("ratio") else "--", BLUE, "创业板指/中证红利")
+        + cell("当前区间", badge, color, "0.35 / 0.60 边界")
+        + cell("红利仓位", f"{alloc['div'] * 100:.0f}%", GREEN, "底仓")
+        + cell("创业板仓位", f"{alloc['gem'] * 100:.0f}%", RED, "成长弹性")
+        + cell("纳指仓位", f"{alloc['ndx'] * 100:.0f}%", BLUE, "海外分散")
+        + cell("VXN", f"{vxn:.2f}" if vxn is not None else "--", vxn_color, vxn_txt)
+        + cell("纳指ETF溢价", prem_txt, prem_color, prem_state)
     )
 
     imgs = ""
-    for cid, title in (("rot_diff", "60日收益差 & 分位数"), ("rot_pos", "建议红利仓位走势")):
+    for cid, title in (("rot_diff", "创红比 x 与风格区间"), ("rot_pos", "三资产配置走势")):
         if cid in images:
             imgs += (f'<div style="margin-top:12px;">'
                      f'<div style="font-size:11px;color:#93a1b3;margin-bottom:4px;">{title}</div>'
@@ -246,20 +238,17 @@ def _rotation_block(panel: dict, images: dict) -> str:
     <tr><td style="padding:0 0 14px;">
       <div style="border:1px solid #e3e8ef;border-radius:10px;overflow:hidden;">
         <div style="background:#2f6fed;color:#fff;padding:10px 14px;font-size:14px;font-weight:700;">
-          创业板-红利跷跷板 · 红利补仓/减仓参考
+          风格轮动 &amp; 纳指波动监控
           <span style="float:right;font-weight:400;font-size:11px;">{cur['date']} 收盘</span>
         </div>
         <div style="padding:12px 14px;background:#fff;">
-          <div style="font-size:34px;font-weight:800;color:{color};
-                      font-family:Consolas,monospace;line-height:1.1;">{w * 100:.0f}%</div>
-          <div style="font-size:12px;color:#5c6b7f;margin-top:2px;">建议红利仓位 · {badge}</div>
-          <div style="font-size:13px;color:#1f2733;margin-top:8px;">{advice}</div>
-          {tip}
+          <div style="font-size:16px;font-weight:700;color:{color};">{badge}</div>
+          <div style="font-size:13px;color:#1f2733;margin-top:6px;">{advice}</div>
           <table style="width:100%;border-collapse:collapse;margin-top:12px;background:#f7f9fc;">
             <tr>{metrics}</tr>
           </table>
           <div style="font-size:11px;color:#93a1b3;margin-top:10px;">
-            最近一次仓位变化：{last_txt}
+            最近一次信号变化：{last_txt}
           </div>
           {imgs}
         </div>
@@ -327,7 +316,7 @@ def build_email(signal_rows: list, rotation: dict | None = None,
                 images: dict | None = None) -> tuple:
     """组装邮件（主题 + HTML 正文）。
 
-    rotation: compute_panel() 的结果（可为 None，则不展示跷跷板区块）
+    rotation: compute_panel() 的结果（可为 None，则不展示风格轮动区块）
     images:   {cid: png bytes}，内嵌到正文对应位置
     """
     images = images or {}
@@ -358,7 +347,7 @@ def build_email(signal_rows: list, rotation: dict | None = None,
           快速查看线上看板（点击直达）：
           <a href="{SITE_DESKTOP}" style="display:inline-block;margin:2px 6px 0 0;padding:5px 12px;
              background:#2f6fed;color:#fff;border-radius:6px;font-size:12px;
-             text-decoration:none;font-weight:600;">电脑版 · 跷跷板面板</a>
+             text-decoration:none;font-weight:600;">电脑版 · 风格轮动看板</a>
           <a href="{SITE_MOBILE}" style="display:inline-block;margin:2px 0 0;padding:5px 12px;
              background:#0c9668;color:#fff;border-radius:6px;font-size:12px;
              text-decoration:none;font-weight:600;">手机版 · 全部标的</a>
@@ -378,8 +367,8 @@ def build_email(signal_rows: list, rotation: dict | None = None,
         <div style="font-size:11px;color:#93a1b3;line-height:1.7;">
           口径：不复权实际盘面价；RSI 45 买 / 持仓超卖线全卖；重复同向信号忽略。<br>
           建议金额 = 仓位金额 × 浮动仓位比例 × 倍率（倍率按 RSI 信号强弱线性加码）。<br>
-          跷跷板面板：60日收益差近3年分位 ≥90% 止盈回补红利、≤10% 黄金补仓区；
-          趋势过滤 MA20/MA60 + 60日动量（5% 入场 / 10% 强趋势），3日确认、10日冷却。<br>
+          风格轮动看板：创红比（创业板指/中证红利）&gt;0.60 观察中证红利、&lt;0.35 观察创业板；
+          VXN&gt;30 触发大笔买入纳斯达克（纳指加仓至 40%）；纳指ETF溢价 &gt;5% 预警、&gt;10% 暂缓买入。<br>
           本邮件为历史规则回测研究，不构成投资建议。
         </div>
       </div>

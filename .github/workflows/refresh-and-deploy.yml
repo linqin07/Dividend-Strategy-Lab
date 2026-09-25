@@ -65,9 +65,9 @@ jobs:
           # 实时股息率汇总落盘（output/yields.json），随站点发布供静态页面直接读取；
           # 官网估值偶发断连，失败不阻断部署（静态页会自动降级为本地回测 TTM）
           python run.py yields || echo "::warning::实时股息率抓取失败，本次部署无股息率缓存，页面走降级展示"
-          # 创业板/红利跷跷板面板数据落盘（output/rotation.json），供静态页直接读取；
-          # 指数行情源偶发断连，失败不阻断部署（页面自动降级为内置模拟序列）
-          python run.py rotation --force || echo "::warning::跷跷板面板数据构建失败，页面走模拟数据降级"
+          # 风格轮动&纳指波动监控面板数据落盘（output/rotation.json），供静态页直接读取；
+          # 行情/VXN/净值源偶发断连，失败不阻断部署（页面自动降级为内置模拟序列）
+          python run.py rotation --force || echo "::warning::风格轮动面板数据构建失败，页面走模拟数据降级"
 
       - name: 校验数据新鲜度（失败则中止，线上保留上一次结果）
         if: inputs.skip_freshness_check != true

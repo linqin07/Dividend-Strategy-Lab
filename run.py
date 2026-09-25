@@ -48,7 +48,7 @@ def main():
     p_yd = sub.add_parser("yields", help="汇总当前基金的实时股息率（中证官网估值，动态TTM兜底），并缓存至 output/yields.json 供静态页面读取")
     p_yd.set_defaults(func=_cmd_yields)
 
-    p_rt = sub.add_parser("rotation", help="生成创业板指/中证红利跷跷板面板数据 output/rotation.json")
+    p_rt = sub.add_parser("rotation", help="生成风格轮动&纳指波动监控面板数据 output/rotation.json")
     p_rt.add_argument("--force", action="store_true", help="强制刷新行情缓存（走在线源）")
     p_rt.set_defaults(func=_cmd_rotation)
 
@@ -57,7 +57,7 @@ def main():
 
 
 def _cmd_init(args):
-    from strategy_lab.config import ensure_dirs, load_funds, save_funds, BASE_DIR
+    from strategy_lab.config import ensure_dirs, load_funds, BASE_DIR
     import os
     ensure_dirs()
     load_funds()   # 不存在则生成默认
@@ -104,7 +104,7 @@ def _cmd_signal(args):
     import os
     from strategy_lab.config import ensure_dirs, load_funds, load_env
     from strategy_lab.signal import latest_signal
-    from strategy_lab.report import write_signal_json, write_summary
+    from strategy_lab.report import write_signal_json
     from strategy_lab.notify import build_email, send_email
     ensure_dirs()
     funds = load_funds()
@@ -128,7 +128,7 @@ def _cmd_signal(args):
               f"建议={sig.get('action')}{amt_txt} （{sig.get('note')}）")
 
     def _build_mail_extras():
-        """构建跷跷板面板 + 图表（失败降级为无附件，不阻断发信）"""
+        """构建风格轮动面板 + 图表（失败降级为无附件，不阻断发信）"""
         rotation_local, images_local = None, {}
         try:
             from strategy_lab.mail_report import (render_rsi_chart,
@@ -148,11 +148,13 @@ def _cmd_signal(args):
             if png:
                 images_local["rot_pos"] = png
             cur = rotation_local["cur"]
-            pct_txt = f"{cur['pct'] * 100:.1f}%" if cur["pct"] is not None else "--"
-            print(f"跷跷板面板：建议红利仓位 {cur['w'] * 100:.0f}%"
-                  f"（60日收益差分位 {pct_txt}）· 图表 {len(images_local)} 张")
+            alloc = cur["alloc"]
+            print(f"风格轮动面板：{cur['zone_name']}"
+                  f"（x={cur['ratio']:.4f}）· 配置 红利{alloc['div'] * 100:.0f}%/"
+                  f"创业板{alloc['gem'] * 100:.0f}%/纳指{alloc['ndx'] * 100:.0f}%"
+                  f" · VXN={cur['vxn']} · 图表 {len(images_local)} 张")
         except Exception as e:
-            print(f"⚠️ 跷跷板面板/图表生成失败，邮件仅含信号部分：{e}")
+            print(f"⚠️ 风格轮动面板/图表生成失败，邮件仅含信号部分：{e}")
         return rotation_local, images_local
 
     if args.preview:
@@ -176,7 +178,7 @@ def _cmd_signal(args):
                   "MAIL_CC", "MAIL_BCC"):
             if os.environ.get(k):
                 env[k] = os.environ[k]
-        # 附加内容：创业板/红利跷跷板面板 + 图表（任一环节失败都不阻断发信）
+        # 附加内容：风格轮动 & 纳指波动监控面板 + 图表（任一环节失败都不阻断发信）
         rotation, images = _build_mail_extras()
         subject, body = build_email(rows, rotation=rotation, images=images)
         ok, msg = send_email(subject, body, env, images=images)
@@ -204,15 +206,16 @@ def _cmd_yields(args):
 
 
 def _cmd_rotation(args):
-    """生成创业板指/中证红利跷跷板面板数据并落盘 output/rotation.json"""
+    """生成风格轮动 & 纳指波动监控面板数据并落盘 output/rotation.json"""
     from strategy_lab.rotation import write_rotation_json
-    print("构建 创业板指(399006)/中证红利(000922) 跷跷板面板数据"
+    print("构建 风格轮动(创红比399006/000922 + VXN + 纳指ETF溢价) 面板数据"
           f"{' [强制刷新行情]' if args.force else ''}...")
     data = write_rotation_json(force=args.force)
     prov = data.get("providers") or {}
     print(f"区间 {data['dates'][0]} ~ {data['dates'][-1]}，共 {len(data['dates'])} 个交易日"
           f"{' ⚠含缓存兜底数据' if data.get('stale') else ''}")
-    print(f"数据源: 创业板={prov.get('growth')} 红利={prov.get('dividend')}")
+    print(f"数据源: 创业板={prov.get('growth')} 红利={prov.get('dividend')}"
+          f" 纳指ETF={prov.get('etf_513100')} VXN=cboe")
     print("已写入 output/rotation.json")
 
 
