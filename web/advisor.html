@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 加减仓顾问 · 红利策略实验室</title>
+<link rel="stylesheet" href="style.css">
+<style>
+/* ---------- AI 顾问页专属样式 ---------- */
+.advisor-wrap { max-width: 1080px; margin: 0 auto; padding: 18px 28px 10px; }
+@media (max-width: 720px) { .advisor-wrap { padding-left: 14px; padding-right: 14px; } }
+
+.hold-toolbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; padding: 12px 16px 4px; }
+.hold-toolbar .meta-text { flex: 1; min-width: 160px; }
+
+.hold-in, .hold-num {
+  border: 1px solid var(--border); border-radius: 6px; padding: 4px 6px;
+  font-size: 12.5px; background: #fff; color: var(--text); width: 100%;
+}
+.hold-num { text-align: right; font-family: Consolas, monospace; }
+.hold-in:focus, .hold-num:focus { outline: none; border-color: var(--primary); }
+td.num-cell { min-width: 86px; }
+td.txt-cell { min-width: 150px; }
+td.code-cell { min-width: 74px; }
+td.op-cell { white-space: nowrap; }
+
+.param-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px; padding: 14px 16px 6px;
+}
+.param-item label { display: block; font-size: 12.5px; color: var(--text-2); margin-bottom: 5px; }
+.param-item input, .param-item select {
+  width: 100%; border: 1px solid var(--border); border-radius: 8px;
+  padding: 8px 10px; font-size: 13.5px; background: #fff; color: var(--text);
+}
+.param-item input:focus, .param-item select:focus { outline: none; border-color: var(--primary); }
+.param-item textarea {
+  width: 100%; border: 1px solid var(--border); border-radius: 8px;
+  padding: 8px 10px; font-size: 13px; background: #fff; color: var(--text);
+  min-height: 64px; resize: vertical; font-family: inherit;
+}
+.param-item textarea:focus { outline: none; border-color: var(--primary); }
+.param-tip { padding: 0 16px 14px; font-size: 12px; color: var(--text-3); line-height: 1.8; }
+.param-tip code { background: #eef2f7; padding: 1px 6px; border-radius: 4px; font-family: Consolas, monospace; }
+
+.advisor-actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; padding: 6px 16px 16px; }
+.btn-ai { padding: 10px 26px; font-size: 14.5px; font-weight: 600; }
+
+/* 汇总卡片 */
+.sum-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px; padding: 14px 16px 4px;
+}
+.ystat .ystat-v.small { font-size: 15px; }
+
+/* 结果区 */
+.advice-summary {
+  margin: 0 16px 14px; border-radius: 10px; padding: 14px 18px;
+  background: #eef3fe; border: 1px solid #bcd2fb;
+}
+.advice-summary .sum-title { font-size: 12px; color: var(--text-3); margin-bottom: 4px; }
+.advice-summary .sum-text { font-size: 15px; font-weight: 700; line-height: 1.6; }
+.advice-overall {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px; padding: 0 16px 14px;
+}
+.act-tag {
+  display: inline-block; padding: 2px 10px; border-radius: 999px;
+  font-size: 12px; font-weight: 700; white-space: nowrap;
+}
+.act-加仓, .act-定投 { color: var(--red); background: #fdeeee; border: 1px solid #f3c4c4; }
+.act-减仓, .act-清仓, .act-转出 { color: var(--green); background: #eafaf2; border: 1px solid #bde5d3; }
+.act-持有 { color: var(--text-2); background: #f0f3f8; border: 1px solid var(--border); }
+.risk-list { padding: 0 16px 16px; }
+.risk-list li { font-size: 13px; color: #8a5a00; margin-bottom: 6px; line-height: 1.7; }
+.risk-box { background: #fdf6e3; border: 1px solid #ecd9ae; border-radius: 10px; margin: 0 16px 16px; padding: 12px 18px; }
+.risk-box h3 { margin: 0 0 8px; font-size: 13.5px; color: var(--warn); }
+.md-body { padding: 4px 22px 20px; font-size: 13.5px; line-height: 1.9; color: var(--text); }
+.md-body h3 { font-size: 14.5px; margin: 18px 0 8px; padding-left: 8px; border-left: 3px solid var(--primary); }
+.md-body h4 { font-size: 13.5px; margin: 14px 0 6px; }
+.md-body ul { padding-left: 22px; margin: 6px 0; }
+.md-body li { margin-bottom: 4px; }
+.md-body code { background: #eef2f7; padding: 1px 6px; border-radius: 4px; font-family: Consolas, monospace; font-size: 12.5px; }
+.advice-meta { padding: 0 16px 14px; font-size: 12px; color: var(--text-3); }
+.spinner-inline {
+  display: inline-block; width: 14px; height: 14px; border-radius: 50%;
+  border: 2px solid #c6d2e2; border-top-color: var(--primary);
+  animation: spin .8s linear infinite; vertical-align: -2px; margin-right: 8px;
+}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-icon">🤖</span>
+    <div>
+      <h1>AI 加减仓顾问</h1>
+      <p class="brand-sub">持仓明细 × 实验室策略信号 → DeepSeek 智能加减仓与仓位建议</p>
+    </div>
+  </div>
+  <div class="topbar-actions">
+    <a class="btn" href="index.html">回测首页</a>
+    <a class="btn" href="rotation.html">红利仓位参考</a>
+  </div>
+</header>
+
+<div class="advisor-wrap">
+
+  <!-- 持仓汇总 -->
+  <section class="panel">
+    <div class="panel-head">
+      <h2>持仓汇总</h2>
+      <span class="meta-text">自动计算 · 修改下方持仓后实时更新</span>
+    </div>
+    <div class="sum-grid" id="sumGrid"></div>
+  </section>
+
+  <!-- 持仓明细 -->
+  <section class="panel">
+    <div class="panel-head">
+      <h2>持仓明细（可编辑）</h2>
+      <span class="meta-text">数据保存在浏览器本地（localStorage），不会上传</span>
+    </div>
+    <div class="hold-toolbar">
+      <button class="btn btn-mini" id="btnAddRow">＋ 新增一行</button>
+      <button class="btn btn-mini" id="btnResetDemo">恢复为示例持仓</button>
+      <button class="btn btn-mini" id="btnClearRows">清空全部</button>
+      <span class="meta-text">市值为空时按 现价×数量 估算；示例持仓来自 2026-09-25 四账户截图</span>
+    </div>
+    <div class="table-wrap">
+      <table id="holdTable">
+        <thead>
+          <tr>
+            <th>账户</th><th>名称</th><th>代码</th>
+            <th class="num">市值(元)</th><th class="num">成本</th>
+            <th class="num">现价</th><th class="num">数量</th>
+            <th class="num">累计盈亏(元)</th><th class="num">收益率</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="holdBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 参数 & Key -->
+  <section class="panel">
+    <div class="panel-head">
+      <h2>建议参数</h2>
+    </div>
+    <div class="param-grid">
+      <div class="param-item">
+        <label>可用现金（元，不含持仓市值）</label>
+        <input type="number" id="inCash" value="289361.89" step="0.01">
+      </div>
+      <div class="param-item">
+        <label>风险偏好</label>
+        <select id="inRisk">
+          <option>保守</option>
+          <option selected>稳健</option>
+          <option>进取</option>
+        </select>
+      </div>
+      <div class="param-item">
+        <label>DeepSeek API Key（sk- 开头；仅本次请求使用，也可留空走后端 .env）</label>
+        <input type="password" id="inKey" placeholder="sk-..." autocomplete="off">
+      </div>
+      <div class="param-item">
+        <label>补充说明（可选，如近期用钱计划、不想动的仓位等）</label>
+        <textarea id="inExtra" placeholder="例：半年内可能要用 5 万；白酒个股不想卖；准备每月定投 1000 元"></textarea>
+      </div>
+    </div>
+    <div class="param-tip">
+      ① AI 会自动结合本实验室最新周线 RSI 信号、实时股息率、创业板/红利跷跷板面板给出建议（需本地后端在线）。
+      ② Key 可保存到项目根目录 <code>.env</code>：<code>DEEPSEEK_API_KEY=sk-xxx</code>，页面留空即可。
+      ③ AI 建议仅供参考，不构成投资建议。
+    </div>
+    <div class="advisor-actions">
+      <button class="btn btn-primary btn-ai" id="btnGo">🤖 生成 AI 加减仓建议</button>
+      <span id="aiStatus" class="meta-text"></span>
+    </div>
+  </section>
+
+  <!-- 结果 -->
+  <section class="panel" id="advicePanel" hidden>
+    <div class="panel-head">
+      <h2>AI 建议</h2>
+      <span class="meta-text" id="adviceMeta"></span>
+    </div>
+    <div id="adviceBody"></div>
+  </section>
+
+</div>
+
+<div class="footer">红利策略实验室 · AI 顾问结果由 DeepSeek 生成，仅供研究参考，不构成投资建议</div>
+
+<script src="advisor.js"></script>
+</body>
+</html>

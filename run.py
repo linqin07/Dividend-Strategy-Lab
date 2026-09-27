@@ -72,7 +72,6 @@ def _cmd_serve(args):
     """启动 FastAPI 服务（前后端分离：web/ 静态页 + /api/* 接口）"""
     from strategy_lab.api import serve
     serve(port=args.port, host=args.host, reload=args.reload)
-    serve(port=args.port)
 
 
 def _cmd_backtest(args):
@@ -229,6 +228,9 @@ MAIL_TO=receiver@example.com
 # 可选：抄送 / 密送（密送不出现在邮件头，适合不想互相暴露邮箱）
 # MAIL_CC=cc1@example.com,cc2@example.com
 # MAIL_BCC=bcc1@example.com,bcc2@example.com
+
+# DeepSeek API Key（AI 加减仓顾问页面用；也可只在页面里临时填入）
+# DEEPSEEK_API_KEY=sk-xxxxxxxx
 
 # 数据源顺序覆盖（可选，逗号分隔；CI 中建议去掉 tdx）
 # PROVIDER_ORDER=eastmoney,csindex,tencent,akshare

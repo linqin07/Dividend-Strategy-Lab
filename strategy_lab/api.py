@@ -29,11 +29,10 @@ import threading
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from strategy_lab.config import (BASE_DIR, OUTPUT_DIR, WEB_DIR, Fund,
+from strategy_lab.config import (OUTPUT_DIR, WEB_DIR, Fund,
                                  ensure_dirs, load_funds, save_funds)
 # 复用旧版 server.py 中已校验过的纯业务函数，避免重复实现
 from strategy_lab.server import _apply_fund_fields, _find_fund
@@ -83,6 +82,26 @@ class BacktestIn(BaseModel):
 
 class RefreshIn(BaseModel):
     code: str | None = None
+
+
+class AdvisorHoldingIn(BaseModel):
+    account: str | None = None
+    name: str | None = None
+    code: str | None = None
+    amount: float | None = None      # 持仓市值（元）
+    cost: float | None = None        # 成本价
+    price: float | None = None       # 现价
+    qty: float | None = None         # 数量（份/股）
+    profit: float | None = None      # 累计盈亏（元）
+    pct: float | None = None         # 持有收益率（%，如 -14.67 表示 -14.67%）
+
+
+class AdvisorIn(BaseModel):
+    holdings: list[AdvisorHoldingIn] = Field(default_factory=list)
+    cash: float = 0.0                # 可用现金（元）
+    risk_level: str = "稳健"          # 保守 | 稳健 | 进取
+    extra: str | None = None         # 用户补充说明
+    api_key: str | None = None       # 可选：前端传入（否则读环境变量/.env）
 
 
 # ---------- 工具 ----------
@@ -314,6 +333,29 @@ def api_rotation_data(force: bool = Query(False, description="true=强制刷新�
             cached["stale"] = True
             return cached
         raise HTTPException(500, f"跷跷板面板数据构建失败: {e}")
+
+
+# ---------- AI 加减仓顾问 ----------
+@app.get("/api/advisor/status")
+def api_advisor_status():
+    """DeepSeek Key 是否已在后端配置（环境变量或 .env）。"""
+    from strategy_lab.advisor import resolve_api_key
+    return {"has_key": bool(resolve_api_key()), "model": "deepseek-chat"}
+
+
+@app.post("/api/advisor/recommend")
+def api_advisor_recommend(body: AdvisorIn):
+    """AI 加减仓建议：结合实验室策略信号 + 用户持仓，调用 DeepSeek（同步，约 30~120s）。"""
+    from strategy_lab.advisor import recommend as _recommend
+    try:
+        return _recommend(
+            holdings=[h.model_dump() for h in body.holdings],
+            cash=body.cash, risk_level=body.risk_level,
+            extra=body.extra, api_key=body.api_key)
+    except RuntimeError as e:
+        raise HTTPException(400, str(e))
+    except Exception as e:
+        raise HTTPException(502, f"DeepSeek 调用失败: {e}")
 
 
 # ---------- 前端静态页（放最后，保证 /api 路由优先） ----------
